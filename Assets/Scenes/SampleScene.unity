@@ -8035,6 +8035,11 @@ SkinnedMeshRenderer:
     m_Center: {x: 0.009499997, y: 0.01770607, z: -0.0011095554}
     m_Extent: {x: 0.04527676, y: 0.05372102, z: 0.06648618}
   m_DirtyAABB: 0
+--- !u!4 &1379769666 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 6587332456759456299, guid: 0a7d2469f24041c4284c66706f84c45e, type: 3}
+  m_PrefabInstance: {fileID: 932225989}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1390102750
 GameObject:
   m_ObjectHideFlags: 0
@@ -10549,6 +10554,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1894620182}
   - component: {fileID: 1894620181}
+  - component: {fileID: 1894620183}
   m_Layer: 0
   m_Name: Flight controller
   m_TagString: Untagged
@@ -10563,7 +10569,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1894620180}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: df1b57626e5317646974446790b0df6c, type: 3}
   m_Name: 
@@ -10595,6 +10601,26 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1894620183
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1894620180}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 716baa34b95865c4f89241ad150290af, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  inputManager: {fileID: 0}
+  planeTransform: {fileID: 704636274}
+  rotationSpeed: 90
+  maxRollAngle: 60
+  maxPitchAngle: 45
+  enableMovement: 0
+  maxSpeed: 2
+  showDebugInfo: 1
 --- !u!1 &1899586934
 GameObject:
   m_ObjectHideFlags: 0
@@ -11537,6 +11563,75 @@ Transform:
   m_Children: []
   m_Father: {fileID: 585676564}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2055209053
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2055209056}
+  - component: {fileID: 2055209055}
+  - component: {fileID: 2055209054}
+  m_Layer: 0
+  m_Name: Hand tracking
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2055209054
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2055209053}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 555b5d8e5849a2a448c6153f7cba0961, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  handInput: {fileID: 2055209055}
+  priority: 0
+  currentMode: 0
+--- !u!114 &2055209055
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2055209053}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3e2ab49b5c137004fb6ae12e5d0b5c7d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  rightHandTransform: {fileID: 1379769666}
+  rollAngleRange: 45
+  pitchAngleRange: 45
+  enableYawControl: 0
+  enableThrottleControl: 0
+  yawPositionRange: 0.2
+  throttlePositionRange: 0.3
+  neutralPosition: {fileID: 0}
+  showDebugLogs: 0
+--- !u!4 &2055209056
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2055209053}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.15924048, y: 0.7863307, z: 0.33797327}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2060761821
 GameObject:
   m_ObjectHideFlags: 0
@@ -11929,3 +12024,4 @@ SceneRoots:
   - {fileID: 1894620182}
   - {fileID: 1310403131}
   - {fileID: 704636274}
+  - {fileID: 2055209056}

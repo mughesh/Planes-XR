@@ -1,0 +1,139 @@
+using UnityEngine;
+
+/// <summary>
+/// Main flight controller that applies input to the plane
+/// Phase 1.1: Stationary plane with roll/pitch visualization only
+/// </summary>
+public class FlightController : MonoBehaviour
+{
+    [Header("References")]
+    [Tooltip("Input manager handling hand tracking / controller switching")]
+    public FlightInputManager inputManager;
+
+    [Tooltip("The plane GameObject to control")]
+    public Transform planeTransform;
+
+    [Header("Phase 1.1: Rotation Visualization")]
+    [Tooltip("How fast the plane rotates to match input (degrees/second)")]
+    public float rotationSpeed = 90f;
+
+    [Tooltip("Maximum roll angle in degrees")]
+    public float maxRollAngle = 60f;
+
+    [Tooltip("Maximum pitch angle in degrees")]
+    public float maxPitchAngle = 45f;
+
+    [Header("Phase 1.2+: Movement (Disabled for now)")]
+    public bool enableMovement = false;
+    public float maxSpeed = 2f;
+
+    [Header("Debug")]
+    public bool showDebugInfo = true;
+
+    // Current plane state
+    private float currentRoll = 0f;
+    private float currentPitch = 0f;
+
+    void Start()
+    {
+        // Auto-create input manager if not assigned
+        if (inputManager == null)
+        {
+            GameObject inputGO = new GameObject("FlightInputManager");
+            inputManager = inputGO.AddComponent<FlightInputManager>();
+            Debug.Log("Auto-created FlightInputManager");
+        }
+
+        // Create test plane if none assigned
+        if (planeTransform == null)
+        {
+            CreateTestPlane();
+        }
+    }
+
+    void Update()
+    {
+        if (!inputManager.IsInputActive())
+        {
+            if (showDebugInfo && Time.frameCount % 60 == 0)
+            {
+                Debug.LogWarning("⚠ No input active. Make sure hand is visible or controller is connected.");
+            }
+            return;
+        }
+
+        UpdatePlaneRotation();
+
+        if (enableMovement)
+        {
+            UpdatePlaneMovement();
+        }
+    }
+
+    void UpdatePlaneRotation()
+    {
+        // Get normalized input values (-1 to 1)
+        float rollInput = inputManager.GetRoll();
+        float pitchInput = inputManager.GetPitch();
+
+        // Convert to target angles
+        float targetRoll = rollInput * maxRollAngle;
+        float targetPitch = pitchInput * maxPitchAngle;
+
+        // Smoothly interpolate current angles toward target
+        currentRoll = Mathf.MoveTowards(currentRoll, targetRoll, rotationSpeed * Time.deltaTime);
+        currentPitch = Mathf.MoveTowards(currentPitch, targetPitch, rotationSpeed * Time.deltaTime);
+
+        // Apply rotation to plane
+        // Aircraft convention: Roll = Z-axis, Pitch = X-axis, Yaw = Y-axis
+        planeTransform.rotation = Quaternion.Euler(currentPitch, 0f, currentRoll);
+
+        // Debug output
+        if (showDebugInfo && Time.frameCount % 30 == 0)
+        {
+            Debug.Log($"Flight Control → Roll: {rollInput:F2} ({currentRoll:F1}°) | Pitch: {pitchInput:F2} ({currentPitch:F1}°) | Input: {inputManager.GetCurrentMode()}");
+        }
+    }
+
+    void UpdatePlaneMovement()
+    {
+        // TODO Phase 1.3: Implement velocity-based movement
+        float throttle = inputManager.GetThrottle();
+        Vector3 forward = planeTransform.forward * throttle * maxSpeed * Time.deltaTime;
+        planeTransform.position += forward;
+    }
+
+    void CreateTestPlane()
+    {
+        GameObject planeGO = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        planeGO.name = "TestPlane";
+        planeGO.transform.position = Camera.main.transform.position + Camera.main.transform.forward * 0.5f;
+        planeGO.transform.localScale = new Vector3(0.15f, 0.05f, 0.1f); // Elongated to look more plane-like
+
+        // Color it distinctly
+        Renderer renderer = planeGO.GetComponent<Renderer>();
+        renderer.material.color = new Color(0.2f, 0.6f, 1f); // Nice blue
+
+        planeTransform = planeGO.transform;
+        Debug.Log("✈ Created test plane in front of camera");
+    }
+
+    void OnGUI()
+    {
+        if (!showDebugInfo) return;
+
+        // On-screen HUD showing input values
+        GUIStyle style = new GUIStyle(GUI.skin.label);
+        style.fontSize = 20;
+        style.normal.textColor = Color.white;
+
+        GUI.Label(new Rect(10, 10, 400, 30), $"Input Mode: {inputManager.GetCurrentMode()}", style);
+        GUI.Label(new Rect(10, 40, 400, 30), $"Roll: {inputManager.GetRoll():F2} ({currentRoll:F1}°)", style);
+        GUI.Label(new Rect(10, 70, 400, 30), $"Pitch: {inputManager.GetPitch():F2} ({currentPitch:F1}°)", style);
+
+        if (enableMovement)
+        {
+            GUI.Label(new Rect(10, 100, 400, 30), $"Throttle: {inputManager.GetThrottle():F2}", style);
+        }
+    }
+}
