@@ -135,8 +135,8 @@ public class HandTrackingInput : MonoBehaviour, IFlightInputProvider
             pitchAngle -= 360f;
 
         // Normalize to -1 to +1 based on pitchAngleRange
-        // Inverted because positive X rotation = fingers down = nose down = negative pitch input
-        currentPitch = Mathf.Clamp(-pitchAngle / pitchAngleRange, -1f, 1f);
+        // Fingers down = nose down, fingers up = nose up
+        currentPitch = Mathf.Clamp(pitchAngle / pitchAngleRange, -1f, 1f);
     }
 
     void CalculatePositionInputs()
