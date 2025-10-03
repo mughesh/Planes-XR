@@ -127,7 +127,21 @@ public class FlightController : MonoBehaviour
         style.fontSize = 20;
         style.normal.textColor = Color.white;
 
-        GUI.Label(new Rect(10, 10, 400, 30), $"Input Mode: {inputManager.GetCurrentMode()}", style);
+        // Get smoothing info from hand input if available
+        string smoothingInfo = "";
+        if (inputManager.handInput != null)
+        {
+            if (inputManager.handInput.enableSmoothing)
+            {
+                smoothingInfo = $" [{inputManager.handInput.smoothingMethod}]";
+            }
+            else
+            {
+                smoothingInfo = " [RAW]";
+            }
+        }
+
+        GUI.Label(new Rect(10, 10, 500, 30), $"Input Mode: {inputManager.GetCurrentMode()}{smoothingInfo}", style);
         GUI.Label(new Rect(10, 40, 400, 30), $"Roll: {inputManager.GetRoll():F2} ({currentRoll:F1}°)", style);
         GUI.Label(new Rect(10, 70, 400, 30), $"Pitch: {inputManager.GetPitch():F2} ({currentPitch:F1}°)", style);
 
@@ -135,5 +149,10 @@ public class FlightController : MonoBehaviour
         {
             GUI.Label(new Rect(10, 100, 400, 30), $"Throttle: {inputManager.GetThrottle():F2}", style);
         }
+
+        // Helper text
+        style.fontSize = 14;
+        style.normal.textColor = new Color(1f, 1f, 1f, 0.7f);
+        GUI.Label(new Rect(10, 130, 600, 30), "Toggle smoothing in HandTrackingInput inspector", style);
     }
 }

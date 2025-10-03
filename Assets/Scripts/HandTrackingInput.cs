@@ -17,6 +17,30 @@ public class HandTrackingInput : MonoBehaviour, IFlightInputProvider
     [Tooltip("Maximum hand pitch angle (degrees) for full pitch input")]
     public float pitchAngleRange = 45f;
 
+    [Header("Smoothing & Feel (Phase 1.3)")]
+    [Tooltip("Enable input smoothing to reduce jitter")]
+    public bool enableSmoothing = true;
+
+    [Tooltip("Smoothing method: Simple (fast) or OneEuro (better for varying speeds)")]
+    public SmoothingMethod smoothingMethod = SmoothingMethod.Simple;
+
+    [Tooltip("How fast input responds (0.05 = very responsive, 0.2 = very smooth)")]
+    [Range(0.01f, 0.5f)]
+    public float smoothTime = 0.1f;
+
+    [Tooltip("Input below this threshold is ignored (reduces drift)")]
+    [Range(0f, 0.2f)]
+    public float deadZone = 0.08f;
+
+    [Tooltip("Exponential curve makes small movements more precise")]
+    public bool useExponentialCurve = false;
+
+    public enum SmoothingMethod
+    {
+        Simple,      // Fast, good for most cases
+        OneEuro      // Advanced, adapts to movement speed
+    }
+
     [Header("Position-Based Controls (Phase 1.2 - Disabled for now)")]
     [Tooltip("Enable yaw control via hand left/right position")]
     public bool enableYawControl = false;
@@ -42,6 +66,12 @@ public class HandTrackingInput : MonoBehaviour, IFlightInputProvider
     private bool isTracking;
     private Vector3 neutralPos;
 
+    // Smoothing
+    private InputSmoother rollSmoother;
+    private InputSmoother pitchSmoother;
+    private OneEuroFilter rollEuroFilter;
+    private OneEuroFilter pitchEuroFilter;
+
     void Start()
     {
         // Set up neutral position
@@ -56,6 +86,22 @@ public class HandTrackingInput : MonoBehaviour, IFlightInputProvider
         {
             AutoFindRightHand();
         }
+
+        // Initialize smoothers
+        InitializeSmoothing();
+    }
+
+    void InitializeSmoothing()
+    {
+        // Simple smoothers
+        rollSmoother = new InputSmoother(smoothTime, deadZone);
+        pitchSmoother = new InputSmoother(smoothTime, deadZone);
+        rollSmoother.useExponentialCurve = useExponentialCurve;
+        pitchSmoother.useExponentialCurve = useExponentialCurve;
+
+        // One Euro filters
+        rollEuroFilter = new OneEuroFilter(minCutoff: 1f, beta: 0.007f);
+        pitchEuroFilter = new OneEuroFilter(minCutoff: 1f, beta: 0.007f);
     }
 
     void Update()
@@ -107,7 +153,8 @@ public class HandTrackingInput : MonoBehaviour, IFlightInputProvider
         if (showDebugLogs && Time.frameCount % 30 == 0)
         {
             Vector3 handEuler = rightHandTransform.eulerAngles;
-            Debug.Log($"[HandTracking] Raw Hand Euler: ({handEuler.x:F1}, {handEuler.y:F1}, {handEuler.z:F1}) → Roll: {currentRoll:F2} | Pitch: {currentPitch:F2} | IsActive: {isTracking}");
+            string smoothStatus = enableSmoothing ? $"[{smoothingMethod}]" : "[RAW]";
+            Debug.Log($"[HandTracking] {smoothStatus} Hand Euler: ({handEuler.x:F1}, {handEuler.y:F1}, {handEuler.z:F1}) → Roll: {currentRoll:F2} | Pitch: {currentPitch:F2}");
         }
     }
 
@@ -125,7 +172,7 @@ public class HandTrackingInput : MonoBehaviour, IFlightInputProvider
             rollAngle -= 360f;
 
         // Normalize to -1 to +1 based on rollAngleRange
-        currentRoll = Mathf.Clamp(rollAngle / rollAngleRange, -1f, 1f);
+        float rawRoll = Mathf.Clamp(rollAngle / rollAngleRange, -1f, 1f);
 
         // === PITCH CALCULATION ===
         // Pitch is rotation around the X-axis (fingers point up/down)
@@ -136,7 +183,41 @@ public class HandTrackingInput : MonoBehaviour, IFlightInputProvider
 
         // Normalize to -1 to +1 based on pitchAngleRange
         // Fingers down = nose down, fingers up = nose up
-        currentPitch = Mathf.Clamp(pitchAngle / pitchAngleRange, -1f, 1f);
+        float rawPitch = Mathf.Clamp(pitchAngle / pitchAngleRange, -1f, 1f);
+
+        // === APPLY SMOOTHING ===
+        if (enableSmoothing)
+        {
+            // Update smoother parameters in case they changed at runtime
+            rollSmoother.smoothTime = smoothTime;
+            rollSmoother.deadZone = deadZone;
+            rollSmoother.useExponentialCurve = useExponentialCurve;
+
+            pitchSmoother.smoothTime = smoothTime;
+            pitchSmoother.deadZone = deadZone;
+            pitchSmoother.useExponentialCurve = useExponentialCurve;
+
+            if (smoothingMethod == SmoothingMethod.Simple)
+            {
+                currentRoll = rollSmoother.Smooth(rawRoll, Time.deltaTime);
+                currentPitch = pitchSmoother.Smooth(rawPitch, Time.deltaTime);
+            }
+            else // OneEuro
+            {
+                // Apply dead zone manually for OneEuro
+                if (Mathf.Abs(rawRoll) < deadZone) rawRoll = 0f;
+                if (Mathf.Abs(rawPitch) < deadZone) rawPitch = 0f;
+
+                currentRoll = rollEuroFilter.Filter(rawRoll, Time.deltaTime);
+                currentPitch = pitchEuroFilter.Filter(rawPitch, Time.deltaTime);
+            }
+        }
+        else
+        {
+            // No smoothing, use raw values
+            currentRoll = rawRoll;
+            currentPitch = rawPitch;
+        }
     }
 
     void CalculatePositionInputs()
