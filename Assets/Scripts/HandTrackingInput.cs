@@ -41,19 +41,12 @@ public class HandTrackingInput : MonoBehaviour, IFlightInputProvider
         OneEuro      // Advanced, adapts to movement speed
     }
 
-    [Header("Position-Based Controls (Phase 1.2 - Disabled for now)")]
-    [Tooltip("Enable yaw control via hand left/right position")]
-    public bool enableYawControl = false;
+    [Header("Cockpit Sphere (Phase 2)")]
+    [Tooltip("Reference to the cockpit sphere zone - hand must be inside to control")]
+    public CockpitSphere cockpitSphere;
 
-    [Tooltip("Enable throttle control via hand forward/back position")]
-    public bool enableThrottleControl = false;
-
-    public float yawPositionRange = 0.2f;      // meters left/right for full yaw
-    public float throttlePositionRange = 0.3f; // meters forward/back for full throttle
-
-    [Header("Neutral Position")]
-    [Tooltip("Reference point for hand position. If null, uses controller transform")]
-    public Transform neutralPosition;
+    [Tooltip("Use cockpit sphere for position-based controls (yaw/throttle)")]
+    public bool useCockpitSphere = true;
 
     [Header("Debug")]
     public bool showDebugLogs = false;
@@ -64,27 +57,39 @@ public class HandTrackingInput : MonoBehaviour, IFlightInputProvider
     private float currentYaw;
     private float currentThrottle;
     private bool isTracking;
-    private Vector3 neutralPos;
+    private bool isInsideSphere;
+    private float sphereTransitionAlpha = 0f; // 0 = outside, 1 = fully inside
 
     // Smoothing
     private InputSmoother rollSmoother;
     private InputSmoother pitchSmoother;
+    private InputSmoother yawSmoother;
+    private InputSmoother throttleSmoother;
     private OneEuroFilter rollEuroFilter;
     private OneEuroFilter pitchEuroFilter;
+    private OneEuroFilter yawEuroFilter;
+    private OneEuroFilter throttleEuroFilter;
 
     void Start()
     {
-        // Set up neutral position
-        if (neutralPosition == null)
-        {
-            neutralPosition = transform;
-        }
-        neutralPos = neutralPosition.position;
-
         // Auto-find hand if not assigned
         if (rightHandTransform == null)
         {
             AutoFindRightHand();
+        }
+
+        // Auto-find cockpit sphere if not assigned
+        if (cockpitSphere == null && useCockpitSphere)
+        {
+            cockpitSphere = FindObjectOfType<CockpitSphere>();
+            if (cockpitSphere != null)
+            {
+                Debug.Log($"✅ Auto-found CockpitSphere: {cockpitSphere.name}");
+            }
+            else
+            {
+                Debug.LogWarning("⚠ CockpitSphere not found. Create one or disable 'useCockpitSphere'");
+            }
         }
 
         // Initialize smoothers
@@ -96,12 +101,19 @@ public class HandTrackingInput : MonoBehaviour, IFlightInputProvider
         // Simple smoothers
         rollSmoother = new InputSmoother(smoothTime, deadZone);
         pitchSmoother = new InputSmoother(smoothTime, deadZone);
+        yawSmoother = new InputSmoother(smoothTime, deadZone);
+        throttleSmoother = new InputSmoother(smoothTime, deadZone);
+
         rollSmoother.useExponentialCurve = useExponentialCurve;
         pitchSmoother.useExponentialCurve = useExponentialCurve;
+        yawSmoother.useExponentialCurve = useExponentialCurve;
+        throttleSmoother.useExponentialCurve = useExponentialCurve;
 
         // One Euro filters
         rollEuroFilter = new OneEuroFilter(minCutoff: 1f, beta: 0.007f);
         pitchEuroFilter = new OneEuroFilter(minCutoff: 1f, beta: 0.007f);
+        yawEuroFilter = new OneEuroFilter(minCutoff: 1f, beta: 0.007f);
+        throttleEuroFilter = new OneEuroFilter(minCutoff: 1f, beta: 0.007f);
     }
 
     void Update()
@@ -136,25 +148,23 @@ public class HandTrackingInput : MonoBehaviour, IFlightInputProvider
             return;
         }
 
-        // Calculate roll and pitch from hand rotation
+        // Check if hand is inside cockpit sphere (if enabled)
+        UpdateSphereStatus();
+
+        // Calculate roll and pitch from hand rotation (always active)
         CalculateRotationInputs();
 
-        // Calculate yaw and throttle from hand position (if enabled)
-        if (enableYawControl || enableThrottleControl)
-        {
-            CalculatePositionInputs();
-        }
-        else
-        {
-            currentYaw = 0f;
-            currentThrottle = 0f;
-        }
+        // Calculate yaw and throttle from hand position
+        CalculatePositionInputs();
+
+        // Apply sphere transition fade
+        ApplySphereTransition();
 
         if (showDebugLogs && Time.frameCount % 30 == 0)
         {
-            Vector3 handEuler = rightHandTransform.eulerAngles;
             string smoothStatus = enableSmoothing ? $"[{smoothingMethod}]" : "[RAW]";
-            Debug.Log($"[HandTracking] {smoothStatus} Hand Euler: ({handEuler.x:F1}, {handEuler.y:F1}, {handEuler.z:F1}) → Roll: {currentRoll:F2} | Pitch: {currentPitch:F2}");
+            string sphereStatus = useCockpitSphere ? (isInsideSphere ? "[IN SPHERE]" : "[OUTSIDE]") : "";
+            Debug.Log($"[HandTracking] {smoothStatus}{sphereStatus} Roll: {currentRoll:F2} | Pitch: {currentPitch:F2} | Yaw: {currentYaw:F2} | Throttle: {currentThrottle:F2}");
         }
     }
 
@@ -223,25 +233,94 @@ public class HandTrackingInput : MonoBehaviour, IFlightInputProvider
     void CalculatePositionInputs()
     {
         Vector3 handPos = rightHandTransform.position;
-        Vector3 relativePos = handPos - neutralPos;
+        float rawYaw = 0f;
+        float rawThrottle = 0.5f; // Default to 50% throttle when not using sphere
 
-        // Convert to headset's local space for consistent controls
-        // (So moving hand "left" from user's perspective always means left)
-        Transform headTransform = Camera.main.transform;
-        Vector3 localPos = headTransform.InverseTransformPoint(handPos) - headTransform.InverseTransformPoint(neutralPos);
-
-        if (enableYawControl)
+        // === USE COCKPIT SPHERE (Phase 2) ===
+        if (useCockpitSphere && cockpitSphere != null)
         {
-            // Yaw from hand left/right position (X-axis in local space)
-            currentYaw = Mathf.Clamp(localPos.x / yawPositionRange, -1f, 1f);
+            // Get hand position normalized within sphere (-1 to +1 per axis)
+            Vector3 sphereLocalPos = cockpitSphere.GetNormalizedPosition(handPos);
+
+            // Yaw from X-axis (left/right within sphere)
+            rawYaw = sphereLocalPos.x;
+
+            // Throttle from Z-axis (forward/back within sphere)
+            // Map from -1/+1 to 0/1 range (center = 50%)
+            rawThrottle = Mathf.Clamp01((sphereLocalPos.z + 1f) * 0.5f);
         }
 
-        if (enableThrottleControl)
+        // === APPLY SMOOTHING ===
+        if (enableSmoothing)
         {
-            // Throttle from hand forward/back position (Z-axis in local space)
-            // Normalize to 0-1 range (not -1 to 1, since throttle is always positive)
-            float throttleInput = (localPos.z / throttlePositionRange);
-            currentThrottle = Mathf.Clamp01(throttleInput + 0.5f); // Offset so neutral = 0.5
+            // Update smoother parameters
+            yawSmoother.smoothTime = smoothTime;
+            yawSmoother.deadZone = deadZone;
+            yawSmoother.useExponentialCurve = useExponentialCurve;
+
+            throttleSmoother.smoothTime = smoothTime;
+            throttleSmoother.deadZone = deadZone * 0.5f; // Less dead zone for throttle (need finer control)
+            throttleSmoother.useExponentialCurve = useExponentialCurve;
+
+            if (smoothingMethod == SmoothingMethod.Simple)
+            {
+                currentYaw = yawSmoother.Smooth(rawYaw, Time.deltaTime);
+                currentThrottle = throttleSmoother.Smooth(rawThrottle, Time.deltaTime);
+            }
+            else // OneEuro
+            {
+                // Apply dead zone manually
+                if (Mathf.Abs(rawYaw) < deadZone) rawYaw = 0f;
+                if (Mathf.Abs(rawThrottle - 0.5f) < deadZone * 0.5f) rawThrottle = 0.5f; // Dead zone around neutral
+
+                currentYaw = yawEuroFilter.Filter(rawYaw, Time.deltaTime);
+                currentThrottle = throttleEuroFilter.Filter(rawThrottle, Time.deltaTime);
+            }
+        }
+        else
+        {
+            // No smoothing, use raw values
+            currentYaw = rawYaw;
+            currentThrottle = rawThrottle;
+        }
+    }
+
+    void UpdateSphereStatus()
+    {
+        if (!useCockpitSphere || cockpitSphere == null)
+        {
+            isInsideSphere = true; // Always active if not using sphere
+            sphereTransitionAlpha = 1f;
+            return;
+        }
+
+        Vector3 handPos = rightHandTransform.position;
+        bool wasInside = isInsideSphere;
+        isInsideSphere = cockpitSphere.IsPointInside(handPos);
+
+        // Smooth transition when entering/exiting
+        float targetAlpha = isInsideSphere ? 1f : 0f;
+        float transitionSpeed = cockpitSphere.transitionTime > 0 ? (1f / cockpitSphere.transitionTime) : 10f;
+        sphereTransitionAlpha = Mathf.MoveTowards(sphereTransitionAlpha, targetAlpha, transitionSpeed * Time.deltaTime);
+
+        // Debug logging
+        if (showDebugLogs && wasInside != isInsideSphere)
+        {
+            Debug.Log(isInsideSphere ? "✅ Hand entered cockpit sphere" : "❌ Hand exited cockpit sphere");
+        }
+    }
+
+    void ApplySphereTransition()
+    {
+        // Fade inputs based on sphere transition (0 = outside, 1 = fully inside)
+        if (useCockpitSphere && sphereTransitionAlpha < 1f)
+        {
+            currentRoll *= sphereTransitionAlpha;
+            currentPitch *= sphereTransitionAlpha;
+            currentYaw *= sphereTransitionAlpha;
+
+            // Throttle fades to 50% (neutral) when exiting
+            currentThrottle = Mathf.Lerp(0.5f, currentThrottle, sphereTransitionAlpha);
         }
     }
 
@@ -250,7 +329,7 @@ public class HandTrackingInput : MonoBehaviour, IFlightInputProvider
         currentRoll = 0f;
         currentPitch = 0f;
         currentYaw = 0f;
-        currentThrottle = 0f;
+        currentThrottle = 0.5f;
     }
 
     // === IFlightInputProvider Implementation ===
@@ -301,27 +380,38 @@ public class HandTrackingInput : MonoBehaviour, IFlightInputProvider
     void OnDrawGizmos()
     {
         if (!Application.isPlaying) return;
-        if (!isTracking) return;
+        if (rightHandTransform == null) return;
 
         Vector3 handPos = rightHandTransform.position;
 
-        // Draw hand position
-        Gizmos.color = Color.green;
+        // Draw hand position (green when inside sphere, yellow outside, red when not tracking)
+        if (!isTracking)
+            Gizmos.color = Color.red;
+        else if (useCockpitSphere && !isInsideSphere)
+            Gizmos.color = Color.yellow;
+        else
+            Gizmos.color = Color.green;
+
         Gizmos.DrawWireSphere(handPos, 0.02f);
 
-        // Draw neutral position
-        Gizmos.color = Color.blue;
-        Gizmos.DrawWireSphere(neutralPos, 0.03f);
-
-        // Draw connection line
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawLine(neutralPos, handPos);
-
-        // If position controls enabled, draw control volume
-        if (enableYawControl || enableThrottleControl)
+        // If using cockpit sphere, draw connection to sphere center
+        if (useCockpitSphere && cockpitSphere != null)
         {
-            Gizmos.color = new Color(0, 1, 1, 0.2f);
-            Gizmos.DrawWireCube(neutralPos, new Vector3(yawPositionRange * 2, 0.1f, throttlePositionRange * 2));
+            Vector3 sphereCenter = cockpitSphere.Center;
+
+            // Draw line from hand to sphere center
+            Gizmos.color = isInsideSphere ? Color.green : new Color(1f, 0.5f, 0f); // Green inside, orange outside
+            Gizmos.DrawLine(handPos, sphereCenter);
+
+            // Show distance ratio as text (Scene view only)
+            float distRatio = cockpitSphere.GetDistanceRatio(handPos);
+            // Optional: Draw distance indicator spheres
+            if (distRatio > 0.8f && distRatio < 1.2f)
+            {
+                // Near edge - draw warning
+                Gizmos.color = Color.yellow;
+                Gizmos.DrawWireSphere(handPos, 0.025f);
+            }
         }
     }
 }

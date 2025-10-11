@@ -13,7 +13,7 @@ public class FlightController : MonoBehaviour
     [Tooltip("The plane GameObject to control")]
     public Transform planeTransform;
 
-    [Header("Phase 1.1: Rotation Visualization")]
+    [Header("Phase 1: Rotation Visualization")]
     [Tooltip("How fast the plane rotates to match input (degrees/second)")]
     public float rotationSpeed = 90f;
 
@@ -22,6 +22,9 @@ public class FlightController : MonoBehaviour
 
     [Tooltip("Maximum pitch angle in degrees")]
     public float maxPitchAngle = 45f;
+
+    [Tooltip("Maximum yaw angle in degrees (for visualization only)")]
+    public float maxYawAngle = 30f;
 
     [Header("Phase 1.2+: Movement (Disabled for now)")]
     public bool enableMovement = false;
@@ -33,6 +36,7 @@ public class FlightController : MonoBehaviour
     // Current plane state
     private float currentRoll = 0f;
     private float currentPitch = 0f;
+    private float currentYaw = 0f;
 
     void Start()
     {
@@ -75,23 +79,27 @@ public class FlightController : MonoBehaviour
         // Get normalized input values (-1 to 1)
         float rollInput = inputManager.GetRoll();
         float pitchInput = inputManager.GetPitch();
+        float yawInput = inputManager.GetYaw();
 
         // Convert to target angles
         float targetRoll = rollInput * maxRollAngle;
         float targetPitch = pitchInput * maxPitchAngle;
+        float targetYaw = yawInput * maxYawAngle;
 
         // Smoothly interpolate current angles toward target
         currentRoll = Mathf.MoveTowards(currentRoll, targetRoll, rotationSpeed * Time.deltaTime);
         currentPitch = Mathf.MoveTowards(currentPitch, targetPitch, rotationSpeed * Time.deltaTime);
+        currentYaw = Mathf.MoveTowards(currentYaw, targetYaw, rotationSpeed * Time.deltaTime);
 
         // Apply rotation to plane
         // Aircraft convention: Roll = Z-axis, Pitch = X-axis, Yaw = Y-axis
-        planeTransform.rotation = Quaternion.Euler(currentPitch, 0f, currentRoll);
+        planeTransform.rotation = Quaternion.Euler(currentPitch, currentYaw, currentRoll);
 
         // Debug output
         if (showDebugInfo && Time.frameCount % 30 == 0)
         {
-            Debug.Log($"Flight Control → Roll: {rollInput:F2} ({currentRoll:F1}°) | Pitch: {pitchInput:F2} ({currentPitch:F1}°) | Input: {inputManager.GetCurrentMode()}");
+            float throttle = inputManager.GetThrottle();
+            Debug.Log($"Flight Control → Roll: {rollInput:F2} ({currentRoll:F1}°) | Pitch: {pitchInput:F2} ({currentPitch:F1}°) | Yaw: {yawInput:F2} ({currentYaw:F1}°) | Throttle: {throttle:F2}");
         }
     }
 
@@ -144,15 +152,12 @@ public class FlightController : MonoBehaviour
         GUI.Label(new Rect(10, 10, 500, 30), $"Input Mode: {inputManager.GetCurrentMode()}{smoothingInfo}", style);
         GUI.Label(new Rect(10, 40, 400, 30), $"Roll: {inputManager.GetRoll():F2} ({currentRoll:F1}°)", style);
         GUI.Label(new Rect(10, 70, 400, 30), $"Pitch: {inputManager.GetPitch():F2} ({currentPitch:F1}°)", style);
-
-        if (enableMovement)
-        {
-            GUI.Label(new Rect(10, 100, 400, 30), $"Throttle: {inputManager.GetThrottle():F2}", style);
-        }
+        GUI.Label(new Rect(10, 100, 400, 30), $"Yaw: {inputManager.GetYaw():F2} ({currentYaw:F1}°)", style);
+        GUI.Label(new Rect(10, 130, 400, 30), $"Throttle: {inputManager.GetThrottle():F2} ({inputManager.GetThrottle() * 100:F0}%)", style);
 
         // Helper text
         style.fontSize = 14;
         style.normal.textColor = new Color(1f, 1f, 1f, 0.7f);
-        GUI.Label(new Rect(10, 130, 600, 30), "Toggle smoothing in HandTrackingInput inspector", style);
+        GUI.Label(new Rect(10, 170, 600, 30), "Tilt hand = Roll/Pitch | Move hand left/right = Yaw | Move forward/back = Throttle", style);
     }
 }
