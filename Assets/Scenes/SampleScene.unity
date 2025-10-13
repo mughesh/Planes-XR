@@ -10879,6 +10879,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1894620182}
   - component: {fileID: 1894620183}
+  - component: {fileID: 1894620184}
   m_Layer: 0
   m_Name: Flight controller
   m_TagString: Untagged
@@ -10914,14 +10915,42 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   inputManager: {fileID: 2055209054}
+  flightDynamics: {fileID: 0}
   planeTransform: {fileID: 337232878}
-  rotationSpeed: 90
+  maxRollRate: 140
+  maxPitchRate: 90
+  maxYawRate: 60
+  useLegacyPositionControl: 0
   maxRollAngle: 60
   maxPitchAngle: 50
   maxYawAngle: 50
-  enableMovement: 0
-  maxSpeed: 2
+  rotationSpeed: 90
   showDebugInfo: 1
+--- !u!114 &1894620184
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1894620180}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0bf874a7971e43349b84ffca228a3fa4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  planeTransform: {fileID: 0}
+  useFixedUpdate: 1
+  enableCoordinatedTurns: 1
+  bankingFactor: 1
+  enableAutoLevel: 1
+  rollStabilizationRate: 80
+  pitchStabilizationRate: 60
+  stabilizationDelay: 0.25
+  enableMovement: 1
+  maxSpeed: 2
+  acceleration: 2
+  deceleration: 1
+  showDebugInfo: 0
 --- !u!1 &1899586934
 GameObject:
   m_ObjectHideFlags: 0
