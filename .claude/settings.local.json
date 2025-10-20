@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Read(//x/E Drive/XR RESOURCES/Meta Sample scripts/**)",
-      "Read(//c/Users/Mugesh/Pictures/Screenshots/**)"
+      "Read(//c/Users/Mugesh/Pictures/Screenshots/**)",
+      "Read(//c/Users/Mugesh/Desktop/**)"
     ],
     "deny": [],
     "ask": []
