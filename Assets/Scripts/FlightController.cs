@@ -120,7 +120,7 @@ public class FlightController : MonoBehaviour
         // === ROLL CONTROL ===
         // Hand tilt left/right = plane bank left/right (clamped to maxRollAngle)
         // NEGATE rollInput: Z-axis rotation in Euler is inverted relative to hand tilt intuition
-        float targetRoll = -rollInput * maxRollAngle;
+        float targetRoll = rollInput * maxRollAngle;
 
         // === PITCH CONTROL ===
         // Depends on pitchMode setting
@@ -149,7 +149,7 @@ public class FlightController : MonoBehaviour
         // Banking (roll) naturally creates turning (yaw change)
         // More bank = tighter turn radius
         // Formula: yawRate = sin(rollAngle) * bankingTurnStrength
-        float bankingYawRate = Mathf.Sin(currentRoll * Mathf.Deg2Rad) * bankingTurnStrength;
+        float bankingYawRate = -Mathf.Sin(currentRoll * Mathf.Deg2Rad) * bankingTurnStrength;
         currentYaw += bankingYawRate * Time.deltaTime;
         // Keep yaw in 0-360 range
         if (currentYaw > 360f) currentYaw -= 360f;
