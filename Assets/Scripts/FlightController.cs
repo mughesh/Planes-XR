@@ -32,7 +32,7 @@ public class FlightController : MonoBehaviour
 
     [Header("Legacy Position Control (For Comparison)")]
     [Tooltip("Use old position-based system instead of rate-based")]
-    public bool useLegacyPositionControl = false;
+    public bool useLegacyPositionControl = true;
 
     [Tooltip("Maximum angles for legacy mode")]
     public float maxRollAngle = 60f;
@@ -137,6 +137,7 @@ public class FlightController : MonoBehaviour
         float rollInput = inputManager.GetRoll();
         float pitchInput = inputManager.GetPitch();
         float yawInput = inputManager.GetYaw();
+        float throttleInput = inputManager.GetThrottle();
 
         // Convert to target angles
         float targetRoll = rollInput * maxRollAngle;
@@ -151,9 +152,15 @@ public class FlightController : MonoBehaviour
         // Apply rotation to plane (direct assignment)
         planeTransform.rotation = Quaternion.Euler(currentPitch, currentYaw, currentRoll);
 
+        // Send throttle to dynamics for movement
+        if (flightDynamics != null)
+        {
+            flightDynamics.SetThrottle(throttleInput);
+        }
+
         if (showDebugInfo && Time.frameCount % 30 == 0)
         {
-            Debug.Log($"[FlightController LEGACY] Roll: {rollInput:F2} ({currentRoll:F1}°) | Pitch: {pitchInput:F2} ({currentPitch:F1}°)");
+            Debug.Log($"[FlightController LEGACY] Roll: {rollInput:F2} ({currentRoll:F1}°) | Pitch: {pitchInput:F2} ({currentPitch:F1}°) | Throttle: {throttleInput:F2}");
         }
     }
 

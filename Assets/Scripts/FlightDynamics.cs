@@ -38,11 +38,11 @@ public class FlightDynamics : MonoBehaviour
 
     [Header("Phase 5: Movement (Disabled for Phase 1)")]
     [Tooltip("Enable forward movement based on throttle")]
-    public bool enableMovement = false;
+    public bool enableMovement = true;
 
-    public float maxSpeed = 5f;
-    public float acceleration = 2f;
-    public float deceleration = 1f;
+    public float maxSpeed = 1.5f;  // Slow, cinematic speed for video
+    public float acceleration = 0.5f;  // Gentle acceleration
+    public float deceleration = 0.5f;  // Gentle deceleration
 
     [Header("Debug")]
     public bool showDebugInfo = false;

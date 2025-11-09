@@ -182,6 +182,7 @@ public class HandTrackingInput : MonoBehaviour, IFlightInputProvider
             rollAngle -= 360f;
 
         // Normalize to -1 to +1 based on rollAngleRange
+        // Match aircraft convention: hand left tilt (negative) = plane rolls left (negative)
         float rawRoll = Mathf.Clamp(rollAngle / rollAngleRange, -1f, 1f);
 
         // === PITCH CALCULATION ===
