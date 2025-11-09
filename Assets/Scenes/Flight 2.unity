@@ -60054,15 +60054,15 @@ MonoBehaviour:
   planeTransform: {fileID: 1328891775}
   useFixedUpdate: 1
   enableCoordinatedTurns: 1
-  bankingFactor: 1
+  bankingFactor: 2
   enableAutoLevel: 1
   rollStabilizationRate: 80
   pitchStabilizationRate: 60
   stabilizationDelay: 0.25
   enableMovement: 1
-  maxSpeed: 1
+  maxSpeed: 3
   acceleration: 2
-  deceleration: 1
+  deceleration: 2
   showDebugInfo: 0
 --- !u!114 &1927858937
 MonoBehaviour:
@@ -60079,14 +60079,12 @@ MonoBehaviour:
   inputManager: {fileID: 978502087}
   flightDynamics: {fileID: 0}
   planeTransform: {fileID: 1328891775}
-  maxRollRate: 120
-  maxPitchRate: 90
-  maxYawRate: 60
-  useLegacyPositionControl: 0
-  maxRollAngle: 60
-  maxPitchAngle: 50
-  maxYawAngle: 30
+  maxRollAngle: 80
+  maxPitchAngle: 25
   rotationSpeed: 90
+  pitchMode: 0
+  bankingTurnStrength: 100
+  enableAutoLevel: 1
   showDebugInfo: 1
 --- !u!4 &1927858938
 Transform:

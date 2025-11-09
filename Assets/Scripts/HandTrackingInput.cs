@@ -340,6 +340,17 @@ public class HandTrackingInput : MonoBehaviour, IFlightInputProvider
     public float GetThrottle() => currentThrottle;
     public bool IsActive() => isTracking;
 
+    /// <summary>
+    /// Check if hand is currently inside the cockpit sphere
+    /// </summary>
+    public bool IsHandInSphere()
+    {
+        if (!useCockpitSphere || cockpitSphere == null)
+            return true; // Always consider "in sphere" if sphere is disabled
+
+        return isInsideSphere;
+    }
+
     // === Helper Methods ===
     [ContextMenu("Auto-Find Right Hand")]
     void AutoFindRightHand()

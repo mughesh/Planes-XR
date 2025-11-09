@@ -15,13 +15,13 @@ public class FlightDynamics : MonoBehaviour
     [Tooltip("Use FixedUpdate for physics calculations (more stable)")]
     public bool useFixedUpdate = true;
 
-    [Header("Phase 2: Coordinated Turns (Disabled for Phase 1)")]
-    [Tooltip("Banking creates automatic yaw (realistic turns)")]
-    public bool enableCoordinatedTurns = false;
+    [Header("Phase 2: Coordinated Turns")]
+    [Tooltip("Banking creates automatic yaw (realistic turns) - ENABLED for hybrid mode")]
+    public bool enableCoordinatedTurns = true;
 
     [Tooltip("How much roll angle creates turn (0 = none, 1 = realistic, >1 = arcade)")]
     [Range(0f, 2f)]
-    public float bankingFactor = 1.0f;
+    public float bankingFactor = 0.8f;  // Passenger plane - moderate turning radius
 
     [Header("Phase 3: Auto-Stabilization (Disabled for Phase 1)")]
     [Tooltip("Automatically level out when no input detected")]
@@ -91,9 +91,14 @@ public class FlightDynamics : MonoBehaviour
 
     void UpdateDynamics(float deltaTime)
     {
+        // NOTE: In hybrid mode, FlightController handles rotation directly.
+        // FlightDynamics only handles movement via throttle input.
+        // Rotation integration is skipped to avoid conflicts.
+
         // === PHASE 1: ANGULAR VELOCITY INTEGRATION ===
-        UpdateAngularVelocity(deltaTime);
-        IntegrateOrientation(deltaTime);
+        // DISABLED in hybrid mode - FlightController handles rotation
+        // UpdateAngularVelocity(deltaTime);
+        // IntegrateOrientation(deltaTime);
 
         // === PHASE 5: LINEAR VELOCITY & MOVEMENT ===
         if (enableMovement)

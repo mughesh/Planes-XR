@@ -2,8 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// Main flight controller - converts normalized input to flight dynamics
-/// RATE-BASED SYSTEM: Input controls rotation speed, not absolute angles
-/// Phase 1: Core rate-based control with FlightDynamics integration
+/// HYBRID POSITION-BASED SYSTEM: Hand angle determines plane orientation (clamped)
+/// Banking creates natural turning via FlightDynamics coordinatedTurns
 /// </summary>
 public class FlightController : MonoBehaviour
 {
@@ -17,36 +17,44 @@ public class FlightController : MonoBehaviour
     [Tooltip("The plane GameObject to control")]
     public Transform planeTransform;
 
-    [Header("Phase 1: Rate-Based Control")]
-    [Tooltip("Maximum roll rotation speed (degrees/second)")]
-    [Range(30f, 240f)]
-    public float maxRollRate = 120f;
+    [Header("Hybrid Position-Based Control")]
+    [Tooltip("Maximum roll angle (degrees) - clamped")]
+    [Range(30f, 80f)]
+    public float maxRollAngle = 45f;
 
-    [Tooltip("Maximum pitch rotation speed (degrees/second)")]
+    [Tooltip("Maximum pitch angle (degrees) - clamped")]
+    [Range(10f, 45f)]
+    public float maxPitchAngle = 25f;
+
+    [Tooltip("How fast plane interpolates to target angle (degrees/second)")]
     [Range(30f, 180f)]
-    public float maxPitchRate = 90f;
-
-    [Tooltip("Maximum yaw rotation speed (degrees/second)")]
-    [Range(15f, 90f)]
-    public float maxYawRate = 45f;
-
-    [Header("Legacy Position Control (For Comparison)")]
-    [Tooltip("Use old position-based system instead of rate-based")]
-    public bool useLegacyPositionControl = true;
-
-    [Tooltip("Maximum angles for legacy mode")]
-    public float maxRollAngle = 60f;
-    public float maxPitchAngle = 45f;
-    public float maxYawAngle = 30f;
     public float rotationSpeed = 90f;
+
+    [Header("Pitch Behavior")]
+    [Tooltip("Choose how pitch input is handled")]
+    public PitchMode pitchMode = PitchMode.PositionBased;
+
+    public enum PitchMode
+    {
+        PositionBased,  // Hand tilt up/down = plane pitch up/down (clamped)
+        AutoLevel       // Plane stays level, ignores pitch input
+    }
+
+    [Header("Turn Radius")]
+    [Tooltip("Multiplier for banking-based yaw rate (higher = tighter/faster turns)")]
+    [Range(30f, 180f)]
+    public float bankingTurnStrength = 100f;  // Controls how much banking creates yaw
+
+    [Header("Stabilization")]
+    [Tooltip("Auto-level roll and pitch when hand leaves sphere")]
+    public bool enableAutoLevel = true;
 
     [Header("Debug")]
     public bool showDebugInfo = true;
 
-    // Legacy state (only used if useLegacyPositionControl = true)
+    // Control state
     private float currentRoll = 0f;
     private float currentPitch = 0f;
-    private float currentYaw = 0f;
 
     void Start()
     {
@@ -93,74 +101,77 @@ public class FlightController : MonoBehaviour
             return;
         }
 
-        if (useLegacyPositionControl)
-        {
-            UpdatePlaneRotation_Legacy();
-        }
-        else
-        {
-            UpdatePlaneRotation_RateBased();
-        }
+        UpdatePlaneRotation_Hybrid();
     }
 
-    void UpdatePlaneRotation_RateBased()
+    // State for cumulative yaw from banking
+    private float currentYaw = 0f;
+
+    void UpdatePlaneRotation_Hybrid()
     {
-        // Get normalized input values (-1 to 1)
-        float rollInput = inputManager.GetRoll();
-        float pitchInput = inputManager.GetPitch();
-        float yawInput = inputManager.GetYaw();
-        float throttleInput = inputManager.GetThrottle();
+        // HYBRID POSITION-BASED CONTROL SYSTEM
+        // Hand angle directly controls plane orientation (with clamping)
+        // Banking creates natural turning (yaw accumulation based on roll angle)
 
-        // Convert to target rates (degrees/second)
-        float targetRollRate = rollInput * maxRollRate;
-        float targetPitchRate = pitchInput * maxPitchRate;
-        float targetYawRate = yawInput * maxYawRate;
+        float rollInput = inputManager.GetRoll();      // -1 to 1
+        float pitchInput = inputManager.GetPitch();    // -1 to 1
+        float throttleInput = inputManager.GetThrottle();  // 0 to 1
 
-        // Send rates to dynamics system
-        if (flightDynamics != null)
+        // === ROLL CONTROL ===
+        // Hand tilt left/right = plane bank left/right (clamped to maxRollAngle)
+        // NEGATE rollInput: Z-axis rotation in Euler is inverted relative to hand tilt intuition
+        float targetRoll = -rollInput * maxRollAngle;
+
+        // === PITCH CONTROL ===
+        // Depends on pitchMode setting
+        float targetPitch = 0f;
+        if (pitchMode == PitchMode.PositionBased)
         {
-            flightDynamics.SetTargetRates(targetPitchRate, targetYawRate, targetRollRate);
-            flightDynamics.SetThrottle(throttleInput);
+            // Hand tilt up/down = plane pitch up/down (clamped to maxPitchAngle)
+            targetPitch = pitchInput * maxPitchAngle;
+        }
+        // else AutoLevel: pitch stays at 0, targetPitch = 0
+
+        // === STABILIZATION ===
+        // When hand leaves sphere, gradually return to level (0° roll and pitch)
+        if (enableAutoLevel && !inputManager.handInput.IsHandInSphere())
+        {
+            targetRoll = 0f;
+            targetPitch = 0f;
         }
 
-        // Debug output
-        if (showDebugInfo && Time.frameCount % 30 == 0)
-        {
-            Vector3 angVel = flightDynamics != null ? flightDynamics.GetAngularVelocity() : Vector3.zero;
-            Debug.Log($"[FlightController] Input: R:{rollInput:F2} P:{pitchInput:F2} Y:{yawInput:F2} | Rates: ({angVel.x:F1}, {angVel.y:F1}, {angVel.z:F1}) °/s");
-        }
-    }
-
-    void UpdatePlaneRotation_Legacy()
-    {
-        // OLD POSITION-BASED SYSTEM (for comparison)
-        float rollInput = inputManager.GetRoll();
-        float pitchInput = inputManager.GetPitch();
-        float yawInput = inputManager.GetYaw();
-        float throttleInput = inputManager.GetThrottle();
-
-        // Convert to target angles
-        float targetRoll = rollInput * maxRollAngle;
-        float targetPitch = pitchInput * maxPitchAngle;
-        float targetYaw = yawInput * maxYawAngle;
-
-        // Smoothly interpolate current angles toward target
+        // === SMOOTH INTERPOLATION ===
+        // Plane smoothly moves toward target angles (not instant)
         currentRoll = Mathf.MoveTowards(currentRoll, targetRoll, rotationSpeed * Time.deltaTime);
         currentPitch = Mathf.MoveTowards(currentPitch, targetPitch, rotationSpeed * Time.deltaTime);
-        currentYaw = Mathf.MoveTowards(currentYaw, targetYaw, rotationSpeed * Time.deltaTime);
 
-        // Apply rotation to plane (direct assignment)
+        // === BANKING-BASED YAW (Coordinated Turn) ===
+        // Banking (roll) naturally creates turning (yaw change)
+        // More bank = tighter turn radius
+        // Formula: yawRate = sin(rollAngle) * bankingTurnStrength
+        float bankingYawRate = Mathf.Sin(currentRoll * Mathf.Deg2Rad) * bankingTurnStrength;
+        currentYaw += bankingYawRate * Time.deltaTime;
+        // Keep yaw in 0-360 range
+        if (currentYaw > 360f) currentYaw -= 360f;
+        if (currentYaw < 0f) currentYaw += 360f;
+
+        // === APPLY ROTATION ===
+        // Yaw from banking creates natural turning without direct yaw input
         planeTransform.rotation = Quaternion.Euler(currentPitch, currentYaw, currentRoll);
 
-        // Send throttle to dynamics for movement
+        // === MOVEMENT ===
+        // Send throttle to dynamics system for forward motion
         if (flightDynamics != null)
         {
             flightDynamics.SetThrottle(throttleInput);
         }
 
+        // === DEBUG OUTPUT ===
         if (showDebugInfo && Time.frameCount % 30 == 0)
         {
-            Debug.Log($"[FlightController LEGACY] Roll: {rollInput:F2} ({currentRoll:F1}°) | Pitch: {pitchInput:F2} ({currentPitch:F1}°) | Throttle: {throttleInput:F2}");
+            string pitchModeStr = pitchMode == PitchMode.PositionBased ? "PosBased" : "AutoLevel";
+            float bankingYawRateDebug = Mathf.Sin(currentRoll * Mathf.Deg2Rad) * bankingTurnStrength;
+            Debug.Log($"[FlightController HYBRID] Roll: {rollInput:F2}→{currentRoll:F1}° | Pitch: {pitchInput:F2}→{currentPitch:F1}° | Yaw: {currentYaw:F1}° (rate: {bankingYawRateDebug:F1}°/s) [{pitchModeStr}] | Throttle: {throttleInput:F2}");
         }
     }
 
@@ -203,35 +214,29 @@ public class FlightController : MonoBehaviour
         }
 
         // Show control mode
-        string controlMode = useLegacyPositionControl ? "[LEGACY POSITION]" : "[RATE-BASED]";
-        GUI.Label(new Rect(10, 10, 600, 30), $"Mode: {controlMode} {smoothingInfo}", style);
+        string pitchModeStr = pitchMode == PitchMode.PositionBased ? "PosBased" : "AutoLevel";
+        GUI.Label(new Rect(10, 10, 600, 30), $"Mode: [HYBRID] Pitch: [{pitchModeStr}] {smoothingInfo}", style);
 
-        if (useLegacyPositionControl)
+        // Hybrid mode display
+        Vector3 euler = planeTransform.eulerAngles;
+        GUI.Label(new Rect(10, 40, 500, 30), $"Roll: {inputManager.GetRoll():F2} → {currentRoll:F1}° (target ±{maxRollAngle:F0}°)", style);
+
+        if (pitchMode == PitchMode.PositionBased)
         {
-            // Legacy mode display
-            GUI.Label(new Rect(10, 40, 400, 30), $"Roll: {inputManager.GetRoll():F2} ({currentRoll:F1}°)", style);
-            GUI.Label(new Rect(10, 70, 400, 30), $"Pitch: {inputManager.GetPitch():F2} ({currentPitch:F1}°)", style);
-            GUI.Label(new Rect(10, 100, 400, 30), $"Yaw: {inputManager.GetYaw():F2} ({currentYaw:F1}°)", style);
+            GUI.Label(new Rect(10, 70, 500, 30), $"Pitch: {inputManager.GetPitch():F2} → {currentPitch:F1}° (target ±{maxPitchAngle:F0}°)", style);
         }
         else
         {
-            // Rate-based mode display
-            Vector3 euler = planeTransform.eulerAngles;
-            Vector3 angVel = flightDynamics != null ? flightDynamics.GetAngularVelocity() : Vector3.zero;
-
-            GUI.Label(new Rect(10, 40, 500, 30), $"Roll: {inputManager.GetRoll():F2} → {angVel.z:F1}°/s (at {euler.z:F1}°)", style);
-            GUI.Label(new Rect(10, 70, 500, 30), $"Pitch: {inputManager.GetPitch():F2} → {angVel.x:F1}°/s (at {euler.x:F1}°)", style);
-            GUI.Label(new Rect(10, 100, 500, 30), $"Yaw: {inputManager.GetYaw():F2} → {angVel.y:F1}°/s (at {euler.y:F1}°)", style);
+            GUI.Label(new Rect(10, 70, 500, 30), $"Pitch: AUTO-LEVEL (staying level)", style);
         }
 
+        GUI.Label(new Rect(10, 100, 500, 30), $"Yaw: From Banking (coordinatedTurns enabled)", style);
         GUI.Label(new Rect(10, 130, 400, 30), $"Throttle: {inputManager.GetThrottle():F2} ({inputManager.GetThrottle() * 100:F0}%)", style);
 
         // Helper text
         style.fontSize = 14;
         style.normal.textColor = new Color(1f, 1f, 1f, 0.7f);
-        string helpText = useLegacyPositionControl ?
-            "LEGACY: Plane mirrors hand angle" :
-            "RATE-BASED: Hand controls rotation speed - can rotate continuously!";
-        GUI.Label(new Rect(10, 170, 700, 30), helpText, style);
+        string helpText = "HYBRID: Hand angle = plane bank (clamped). Banking creates turning. Auto-levels when hand leaves sphere.";
+        GUI.Label(new Rect(10, 170, 900, 30), helpText, style);
     }
 }
