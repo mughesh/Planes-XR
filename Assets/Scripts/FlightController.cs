@@ -1,89 +1,79 @@
 using UnityEngine;
 
 /// <summary>
-/// Main flight controller - converts normalized input to flight dynamics
-/// HYBRID POSITION-BASED SYSTEM: Hand angle determines plane orientation (clamped)
-/// Banking creates natural turning via FlightDynamics coordinatedTurns
+/// Pocket Pilot Flight Controller
+/// Hybrid Position-Based Control: Hand angle controls plane orientation
+/// Banking creates natural coordinated turns
+/// Constant cruise speed (no throttle control)
 /// </summary>
 public class FlightController : MonoBehaviour
 {
     [Header("References")]
-    [Tooltip("Input manager handling hand tracking / controller switching")]
     public FlightInputManager inputManager;
-
-    [Tooltip("Flight dynamics component handling physics integration")]
     public FlightDynamics flightDynamics;
-
-    [Tooltip("The plane GameObject to control")]
     public Transform planeTransform;
 
-    [Header("Hybrid Position-Based Control")]
-    [Tooltip("Maximum roll angle (degrees) - clamped")]
-    [Range(30f, 80f)]
+    [Header("Control Angles")]
+    [Tooltip("Maximum roll angle (degrees)")]
+    [Range(30f, 70f)]
     public float maxRollAngle = 45f;
 
-    [Tooltip("Maximum pitch angle (degrees) - clamped")]
-    [Range(10f, 45f)]
+    [Tooltip("Maximum pitch angle (degrees)")]
+    [Range(15f, 45f)]
     public float maxPitchAngle = 25f;
 
-    [Tooltip("How fast plane interpolates to target angle (degrees/second)")]
-    [Range(30f, 180f)]
-    public float rotationSpeed = 90f;
+    [Tooltip("How fast plane responds to input (degrees/second)")]
+    [Range(60f, 180f)]
+    public float rotationSpeed = 120f;
 
-    [Header("Pitch Behavior")]
-    [Tooltip("Choose how pitch input is handled")]
+    [Header("Banking Turn")]
+    [Tooltip("How much banking creates yaw (higher = tighter turns)")]
+    [Range(50f, 200f)]
+    public float bankingTurnStrength = 100f;
+
+    [Header("Pitch Mode")]
     public PitchMode pitchMode = PitchMode.PositionBased;
 
     public enum PitchMode
     {
-        PositionBased,  // Hand tilt up/down = plane pitch up/down (clamped)
-        AutoLevel       // Plane stays level, ignores pitch input
+        PositionBased,  // Hand tilt controls pitch
+        AutoLevel       // Pitch stays level automatically
     }
 
-    [Header("Turn Radius")]
-    [Tooltip("Multiplier for banking-based yaw rate (higher = tighter/faster turns)")]
-    [Range(30f, 180f)]
-    public float bankingTurnStrength = 100f;  // Controls how much banking creates yaw
-
-    [Header("Stabilization")]
-    [Tooltip("Auto-level roll and pitch when hand leaves sphere")]
-    public bool enableAutoLevel = true;
-
     [Header("Debug")]
-    public bool showDebugInfo = true;
+    public bool showDebugInfo = false;
 
-    // Control state
+    // Internal state
     private float currentRoll = 0f;
     private float currentPitch = 0f;
+    private float currentYaw = 0f;
 
     void Start()
     {
-        // Auto-create input manager if not assigned
         if (inputManager == null)
         {
-            GameObject inputGO = new GameObject("FlightInputManager");
-            inputManager = inputGO.AddComponent<FlightInputManager>();
-            Debug.Log("Auto-created FlightInputManager");
+            inputManager = FindObjectOfType<FlightInputManager>();
+            if (inputManager == null)
+            {
+                GameObject go = new GameObject("FlightInputManager");
+                inputManager = go.AddComponent<FlightInputManager>();
+            }
         }
 
-        // Auto-create or find FlightDynamics
         if (flightDynamics == null)
         {
             flightDynamics = GetComponent<FlightDynamics>();
             if (flightDynamics == null)
             {
                 flightDynamics = gameObject.AddComponent<FlightDynamics>();
-                Debug.Log("Auto-created FlightDynamics component");
             }
         }
 
-        // Create test plane if none assigned
         if (planeTransform == null)
         {
             CreateTestPlane();
         }
 
-        // Assign plane to dynamics
         if (flightDynamics != null)
         {
             flightDynamics.planeTransform = planeTransform;
@@ -94,84 +84,58 @@ public class FlightController : MonoBehaviour
     {
         if (!inputManager.IsInputActive())
         {
-            if (showDebugInfo && Time.frameCount % 60 == 0)
-            {
-                Debug.LogWarning("⚠ No input active. Make sure hand is visible or controller is connected.");
-            }
             return;
         }
 
-        UpdatePlaneRotation_Hybrid();
+        UpdateFlightControl();
     }
 
-    // State for cumulative yaw from banking
-    private float currentYaw = 0f;
-
-    void UpdatePlaneRotation_Hybrid()
+    void UpdateFlightControl()
     {
-        // HYBRID POSITION-BASED CONTROL SYSTEM
-        // Hand angle directly controls plane orientation (with clamping)
-        // Banking creates natural turning (yaw accumulation based on roll angle)
+        // Get input from hand tracking (-1 to 1)
+        float rollInput = inputManager.GetRoll();
+        float pitchInput = inputManager.GetPitch();
 
-        float rollInput = inputManager.GetRoll();      // -1 to 1
-        float pitchInput = inputManager.GetPitch();    // -1 to 1
-        float throttleInput = inputManager.GetThrottle();  // 0 to 1
-
-        // === ROLL CONTROL ===
-        // Hand tilt left/right = plane bank left/right (clamped to maxRollAngle)
-        // NEGATE rollInput: Z-axis rotation in Euler is inverted relative to hand tilt intuition
+        // === ROLL ===
+        // Direct mapping: hand roll angle = plane roll angle
+        // The sign here determines if tilt-left = bank-left
         float targetRoll = rollInput * maxRollAngle;
 
-        // === PITCH CONTROL ===
-        // Depends on pitchMode setting
+        // === PITCH ===
         float targetPitch = 0f;
         if (pitchMode == PitchMode.PositionBased)
         {
-            // Hand tilt up/down = plane pitch up/down (clamped to maxPitchAngle)
             targetPitch = pitchInput * maxPitchAngle;
-        }
-        // else AutoLevel: pitch stays at 0, targetPitch = 0
-
-        // === STABILIZATION ===
-        // When hand leaves sphere, gradually return to level (0° roll and pitch)
-        if (enableAutoLevel && !inputManager.handInput.IsHandInSphere())
-        {
-            targetRoll = 0f;
-            targetPitch = 0f;
         }
 
         // === SMOOTH INTERPOLATION ===
-        // Plane smoothly moves toward target angles (not instant)
         currentRoll = Mathf.MoveTowards(currentRoll, targetRoll, rotationSpeed * Time.deltaTime);
         currentPitch = Mathf.MoveTowards(currentPitch, targetPitch, rotationSpeed * Time.deltaTime);
 
-        // === BANKING-BASED YAW (Coordinated Turn) ===
-        // Banking (roll) naturally creates turning (yaw change)
-        // More bank = tighter turn radius
-        // Formula: yawRate = sin(rollAngle) * bankingTurnStrength
+        // === BANKING TURN (Coordinated Yaw) ===
+        // Roll creates yaw: banking left makes the plane turn left
+        // Negate to match expected behavior: positive roll (right bank) = positive yaw (turn right)
         float bankingYawRate = -Mathf.Sin(currentRoll * Mathf.Deg2Rad) * bankingTurnStrength;
         currentYaw += bankingYawRate * Time.deltaTime;
-        // Keep yaw in 0-360 range
+
+        // Keep yaw in reasonable range
         if (currentYaw > 360f) currentYaw -= 360f;
         if (currentYaw < 0f) currentYaw += 360f;
 
         // === APPLY ROTATION ===
-        // Yaw from banking creates natural turning without direct yaw input
         planeTransform.rotation = Quaternion.Euler(currentPitch, currentYaw, currentRoll);
 
-        // === MOVEMENT ===
-        // Send throttle to dynamics system for forward motion
+        // === CONSTANT FORWARD MOVEMENT ===
         if (flightDynamics != null)
         {
-            flightDynamics.SetThrottle(throttleInput);
+            flightDynamics.SetThrottle(1f);  // Always full cruise
         }
 
-        // === DEBUG OUTPUT ===
+        // === DEBUG ===
         if (showDebugInfo && Time.frameCount % 30 == 0)
         {
-            string pitchModeStr = pitchMode == PitchMode.PositionBased ? "PosBased" : "AutoLevel";
-            float bankingYawRateDebug = Mathf.Sin(currentRoll * Mathf.Deg2Rad) * bankingTurnStrength;
-            Debug.Log($"[FlightController HYBRID] Roll: {rollInput:F2}→{currentRoll:F1}° | Pitch: {pitchInput:F2}→{currentPitch:F1}° | Yaw: {currentYaw:F1}° (rate: {bankingYawRateDebug:F1}°/s) [{pitchModeStr}] | Throttle: {throttleInput:F2}");
+            float yawRate = -Mathf.Sin(currentRoll * Mathf.Deg2Rad) * bankingTurnStrength;
+            Debug.Log($"[Flight] Roll: {rollInput:F2}→{currentRoll:F1}° | Pitch: {currentPitch:F1}° | Yaw: {currentYaw:F1}° (rate: {yawRate:F1}°/s)");
         }
     }
 
@@ -180,63 +144,28 @@ public class FlightController : MonoBehaviour
         GameObject planeGO = GameObject.CreatePrimitive(PrimitiveType.Cube);
         planeGO.name = "TestPlane";
         planeGO.transform.position = Camera.main.transform.position + Camera.main.transform.forward * 0.5f;
-        planeGO.transform.localScale = new Vector3(0.15f, 0.05f, 0.1f); // Elongated to look more plane-like
+        planeGO.transform.localScale = new Vector3(0.15f, 0.05f, 0.1f);
 
-        // Color it distinctly
         Renderer renderer = planeGO.GetComponent<Renderer>();
-        renderer.material.color = new Color(0.2f, 0.6f, 1f); // Nice blue
+        renderer.material.color = new Color(0.2f, 0.6f, 1f);
 
         planeTransform = planeGO.transform;
-        Debug.Log("✈ Created test plane in front of camera");
+        Debug.Log("Created test plane");
     }
 
     void OnGUI()
     {
         if (!showDebugInfo) return;
 
-        // On-screen HUD showing input values
         GUIStyle style = new GUIStyle(GUI.skin.label);
-        style.fontSize = 20;
+        style.fontSize = 18;
         style.normal.textColor = Color.white;
 
-        // Get smoothing info from hand input if available
-        string smoothingInfo = "";
-        if (inputManager.handInput != null)
-        {
-            if (inputManager.handInput.enableSmoothing)
-            {
-                smoothingInfo = $" [{inputManager.handInput.smoothingMethod}]";
-            }
-            else
-            {
-                smoothingInfo = " [RAW]";
-            }
-        }
-
-        // Show control mode
         string pitchModeStr = pitchMode == PitchMode.PositionBased ? "PosBased" : "AutoLevel";
-        GUI.Label(new Rect(10, 10, 600, 30), $"Mode: [HYBRID] Pitch: [{pitchModeStr}] {smoothingInfo}", style);
+        GUI.Label(new Rect(10, 10, 500, 25), $"[POCKET PILOT] Pitch: {pitchModeStr}", style);
+        GUI.Label(new Rect(10, 35, 500, 25), $"Roll: {currentRoll:F1}° | Pitch: {currentPitch:F1}° | Yaw: {currentYaw:F1}°", style);
 
-        // Hybrid mode display
-        Vector3 euler = planeTransform.eulerAngles;
-        GUI.Label(new Rect(10, 40, 500, 30), $"Roll: {inputManager.GetRoll():F2} → {currentRoll:F1}° (target ±{maxRollAngle:F0}°)", style);
-
-        if (pitchMode == PitchMode.PositionBased)
-        {
-            GUI.Label(new Rect(10, 70, 500, 30), $"Pitch: {inputManager.GetPitch():F2} → {currentPitch:F1}° (target ±{maxPitchAngle:F0}°)", style);
-        }
-        else
-        {
-            GUI.Label(new Rect(10, 70, 500, 30), $"Pitch: AUTO-LEVEL (staying level)", style);
-        }
-
-        GUI.Label(new Rect(10, 100, 500, 30), $"Yaw: From Banking (coordinatedTurns enabled)", style);
-        GUI.Label(new Rect(10, 130, 400, 30), $"Throttle: {inputManager.GetThrottle():F2} ({inputManager.GetThrottle() * 100:F0}%)", style);
-
-        // Helper text
-        style.fontSize = 14;
-        style.normal.textColor = new Color(1f, 1f, 1f, 0.7f);
-        string helpText = "HYBRID: Hand angle = plane bank (clamped). Banking creates turning. Auto-levels when hand leaves sphere.";
-        GUI.Label(new Rect(10, 170, 900, 30), helpText, style);
+        float speed = flightDynamics != null ? flightDynamics.GetSpeed() : 0f;
+        GUI.Label(new Rect(10, 60, 500, 25), $"Speed: {speed:F1} m/s", style);
     }
 }

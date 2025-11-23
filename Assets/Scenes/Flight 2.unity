@@ -60060,7 +60060,7 @@ MonoBehaviour:
   pitchStabilizationRate: 60
   stabilizationDelay: 0.25
   enableMovement: 1
-  maxSpeed: 1
+  maxSpeed: 5
   acceleration: 1
   deceleration: 1
   showDebugInfo: 0
