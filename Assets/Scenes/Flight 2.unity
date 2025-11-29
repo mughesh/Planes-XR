@@ -14061,9 +14061,9 @@ MonoBehaviour:
   spawnPoint: {fileID: 1045054174}
   handle: {fileID: 1850851827}
   planeObject: {fileID: 1328891775}
-  flightController: {fileID: 1927858937}
-  flightDynamics: {fileID: 1927858936}
+  flightSystemObject: {fileID: 1927858935}
   playerCamera: {fileID: 0}
+  scaleStartTrigger: {fileID: 1320338384}
   maxPullDistance: 0.3
   launchPowerMultiplier: 15
   minLaunchDistance: 0.05
@@ -14073,8 +14073,8 @@ MonoBehaviour:
   scaleUpDuration: 1.5
   enableLaunchTrajectory: 1
   trajectoryDuration: 1.207
+  trajectoryDistance: 2.5
   trajectoryDip: 0.21
-  trajectorySpeed: 1.5
   requireHandleGrip: 1
   showDebugGizmos: 1
   showDebugLogs: 1
@@ -34018,6 +34018,37 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1315293277}
   m_CullTransparentMesh: 1
+--- !u!1 &1320338383
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1320338384}
+  m_Layer: 0
+  m_Name: PassingPoint
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1320338384
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1320338383}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.0102, y: 0, z: 0.303}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1850851827}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!4 &1328891775 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8238287370226287742, guid: 1247733a16759e44a97847deb3ea6b6a, type: 3}
@@ -63475,6 +63506,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: -7370156802671013846, guid: f5c4d92f1ed7f0344a75317d7dca50a6, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2002972279}
+    - targetCorrespondingSourceObject: {fileID: -7370156802671013846, guid: f5c4d92f1ed7f0344a75317d7dca50a6, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1320338384}
     - targetCorrespondingSourceObject: {fileID: 1365189805238033804, guid: f5c4d92f1ed7f0344a75317d7dca50a6, type: 3}
       insertIndex: 0
       addedObject: {fileID: 1045054174}

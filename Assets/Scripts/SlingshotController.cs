@@ -28,14 +28,14 @@ public class SlingshotController : MonoBehaviour
     [Tooltip("The plane GameObject sitting on the slingshot at start")]
     public Transform planeObject;
 
-    [Tooltip("The scene FlightController component")]
-    public FlightController flightController;
-
-    [Tooltip("The scene FlightDynamics component")]
-    public FlightDynamics flightDynamics;
+    [Tooltip("GameObject containing FlightController & FlightDynamics")]
+    public GameObject flightSystemObject;
 
     [Tooltip("Main camera/XR rig for plane positioning")]
     public Transform playerCamera;
+
+    [Tooltip("Optional: Point on handle where plane must pass to start scaling")]
+    public Transform scaleStartTrigger;
 
     [Header("Launch Settings")]
     [Tooltip("How far user can pull back (meters)")]
@@ -71,16 +71,16 @@ public class SlingshotController : MonoBehaviour
     public bool enableLaunchTrajectory = true;
 
     [Tooltip("How long the parabolic trajectory lasts (seconds)")]
-    [Range(0.3f, 1.5f)]
-    public float trajectoryDuration = 0.8f;
+    [Range(0.3f, 2.5f)]
+    public float trajectoryDuration = 1.2f;
+
+    [Tooltip("Total distance plane travels during trajectory (meters)")]
+    [Range(0.5f, 5f)]
+    public float trajectoryDistance = 2.5f;
 
     [Tooltip("How much plane dips down during launch (meters)")]
-    [Range(0.05f, 0.3f)]
-    public float trajectoryDip = 0.15f;
-
-    [Tooltip("Forward speed during trajectory (before engine starts)")]
-    [Range(0.5f, 3f)]
-    public float trajectorySpeed = 1.5f;
+    [Range(0.05f, 0.5f)]
+    public float trajectoryDip = 0.2f;
 
     [Header("Two-Hand Interaction")]
     [Tooltip("Require handle to be held before pad can be grabbed")]
@@ -100,6 +100,11 @@ public class SlingshotController : MonoBehaviour
     // Plane components to disable/enable
     private Animator planeAnimator;
     private AudioSource planeAudioSource;
+    private FlightController flightController;
+    private FlightDynamics flightDynamics;
+
+    // Scaling state
+    private bool hasPassedScaleTrigger = false;
 
     // Meta SDK grab components
     private HandGrabInteractable padGrabInteractable;
@@ -189,14 +194,18 @@ public class SlingshotController : MonoBehaviour
             Debug.LogWarning("[Slingshot] No plane object assigned!");
         }
 
-        // Disable flight systems at start
-        if (flightController != null)
+        // Get flight system components
+        if (flightSystemObject != null)
         {
-            flightController.enabled = false;
+            flightController = flightSystemObject.GetComponent<FlightController>();
+            flightDynamics = flightSystemObject.GetComponent<FlightDynamics>();
+
+            // Disable entire object at start
+            flightSystemObject.SetActive(false);
         }
-        if (flightDynamics != null)
+        else
         {
-            flightDynamics.enabled = false;
+            Debug.LogWarning("[Slingshot] No flight system object assigned!");
         }
 
         if (showDebugLogs)
@@ -229,6 +238,24 @@ public class SlingshotController : MonoBehaviour
         if (isSnappingBack)
         {
             UpdateSnapBack();
+        }
+
+        // Check if plane has passed scale trigger point
+        if (isGrabbed && !hasPassedScaleTrigger && scaleStartTrigger != null && planeObject != null)
+        {
+            // Simple distance check: Has plane moved past trigger?
+            Vector3 restWorldPos = transform.TransformPoint(restPosition);
+            float planeDist = Vector3.Distance(planeObject.position, restWorldPos);
+            float triggerDist = Vector3.Distance(scaleStartTrigger.position, restWorldPos);
+
+            if (planeDist > triggerDist)
+            {
+                hasPassedScaleTrigger = true;
+                if (showDebugLogs)
+                {
+                    Debug.Log($"[Slingshot] Plane passed scale trigger! Plane dist: {planeDist:F3}m, Trigger dist: {triggerDist:F3}m");
+                }
+            }
         }
 
         // Show pull distance while grabbed
@@ -275,6 +302,7 @@ public class SlingshotController : MonoBehaviour
     {
         isGrabbed = true;
         isSnappingBack = false;
+        hasPassedScaleTrigger = (scaleStartTrigger == null); // If no trigger, always allow scaling
 
         if (showDebugLogs)
         {
@@ -381,16 +409,13 @@ public class SlingshotController : MonoBehaviour
         // Orient plane to launch direction
         planeObject.rotation = Quaternion.LookRotation(launchDirection);
 
-        // Configure flight systems (but keep disabled until trajectory completes)
+        // Configure flight systems (set references but keep object disabled)
         if (flightController != null && flightDynamics != null)
         {
             // Set plane transform reference
             flightController.planeTransform = planeObject;
             flightDynamics.planeTransform = planeObject;
-
-            // Keep disabled until trajectory completes
-            flightController.enabled = false;
-            flightDynamics.enabled = false;
+            flightDynamics.enableMovement = true;
 
             if (showDebugLogs)
             {
@@ -409,12 +434,30 @@ public class SlingshotController : MonoBehaviour
         // Start launch sequence (trajectory → scale → flight control)
         if (enableLaunchTrajectory)
         {
+            if (showDebugLogs)
+            {
+                Debug.Log($"[Slingshot] Starting launch trajectory. hasPassedScaleTrigger: {hasPassedScaleTrigger}");
+            }
             StartCoroutine(LaunchTrajectory(launchDirection, launchSpeed));
         }
         else
         {
-            // No trajectory - just scale and enable flight
-            StartCoroutine(ScalePlaneUp());
+            // No trajectory - just scale and enable flight immediately
+            if (showDebugLogs)
+            {
+                Debug.Log("[Slingshot] No trajectory - immediate launch");
+            }
+
+            if (hasPassedScaleTrigger)
+            {
+                StartCoroutine(ScalePlaneUp());
+            }
+
+            // Enable flight immediately
+            if (flightSystemObject != null)
+            {
+                flightSystemObject.SetActive(true);
+            }
         }
 
         // Disable pad grabbing after launch
@@ -431,13 +474,30 @@ public class SlingshotController : MonoBehaviour
 
     System.Collections.IEnumerator LaunchTrajectory(Vector3 launchDirection, float launchSpeed)
     {
-        if (planeObject == null) yield break;
+        if (planeObject == null)
+        {
+            Debug.LogError("[Slingshot] Plane object is null in LaunchTrajectory!");
+            yield break;
+        }
 
         Vector3 startPos = planeObject.position;
+        Vector3 restWorldPos = transform.TransformPoint(restPosition);
         float elapsed = 0f;
 
-        // Simultaneously: trajectory motion + scaling up
-        StartCoroutine(ScalePlaneUp());
+        if (showDebugLogs)
+        {
+            Debug.Log($"[Slingshot] Trajectory START. Duration: {trajectoryDuration}s, Distance: {trajectoryDistance}m");
+        }
+
+        // Simultaneously: trajectory motion + scaling up (if trigger passed or no trigger)
+        if (hasPassedScaleTrigger)
+        {
+            if (showDebugLogs)
+            {
+                Debug.Log("[Slingshot] Trigger already passed - starting scale immediately");
+            }
+            StartCoroutine(ScalePlaneUp());
+        }
 
         while (elapsed < trajectoryDuration)
         {
@@ -448,39 +508,80 @@ public class SlingshotController : MonoBehaviour
             // y = -4 * dip * t * (t - 1)  -- This creates arc that dips then returns
             float verticalOffset = -4f * trajectoryDip * t * (t - 1f);
 
-            // Move forward with slight downward arc
-            Vector3 forward = launchDirection * trajectorySpeed * elapsed;
+            // Move forward along launch direction based on total distance
+            Vector3 forward = launchDirection * trajectoryDistance * t;
             Vector3 down = Vector3.down * verticalOffset;
 
             planeObject.position = startPos + forward + down;
 
+            // Start scaling if we just passed the trigger during trajectory
+            if (!hasPassedScaleTrigger && scaleStartTrigger != null)
+            {
+                float planeDist = Vector3.Distance(planeObject.position, restWorldPos);
+                float triggerDist = Vector3.Distance(scaleStartTrigger.position, restWorldPos);
+
+                if (planeDist > triggerDist)
+                {
+                    hasPassedScaleTrigger = true;
+                    StartCoroutine(ScalePlaneUp());
+                    if (showDebugLogs)
+                    {
+                        Debug.Log($"[Slingshot] Passed trigger during flight! Plane: {planeDist:F3}m, Trigger: {triggerDist:F3}m");
+                    }
+                }
+            }
+
             yield return null;
         }
 
-        // Trajectory complete - enable flight systems
-        if (flightController != null)
+        // If we STILL haven't scaled (no trigger or very short pull), scale now
+        if (!hasPassedScaleTrigger)
         {
-            flightController.enabled = true;
-        }
-        if (flightDynamics != null)
-        {
-            flightDynamics.enableMovement = true;
-            flightDynamics.enabled = true;
+            hasPassedScaleTrigger = true;
+            if (showDebugLogs)
+            {
+                Debug.Log("[Slingshot] Forcing scale - trigger never passed");
+            }
+            StartCoroutine(ScalePlaneUp());
         }
 
+        // Trajectory complete - enable flight systems
         if (showDebugLogs)
         {
-            Debug.Log("[Slingshot] Launch trajectory complete! Flight systems enabled.");
+            Debug.Log($"[Slingshot] Trajectory COMPLETE after {elapsed:F2}s. Enabling flight systems...");
+        }
+
+        if (flightSystemObject != null)
+        {
+            flightSystemObject.SetActive(true);
+
+            if (showDebugLogs)
+            {
+                Debug.Log($"[Slingshot] Flight system object '{flightSystemObject.name}' activated!");
+            }
+        }
+        else
+        {
+            Debug.LogError("[Slingshot] FlightSystemObject is NULL! Cannot enable flight.");
         }
     }
 
     System.Collections.IEnumerator ScalePlaneUp()
     {
-        if (planeObject == null) yield break;
+        if (planeObject == null)
+        {
+            Debug.LogError("[Slingshot] Plane object is null in ScalePlaneUp!");
+            yield break;
+        }
 
         float elapsed = 0f;
         Vector3 startScale = planeObject.localScale;
         Vector3 targetScale = planeScaleAfterLaunch;
+
+        if (showDebugLogs)
+        {
+            Debug.Log($"[Slingshot] SCALE START: {startScale} → {targetScale} over {scaleUpDuration}s");
+        }
 
         // Scale up animation
         while (elapsed < scaleUpDuration)
@@ -500,7 +601,7 @@ public class SlingshotController : MonoBehaviour
 
         if (showDebugLogs)
         {
-            Debug.Log($"[Slingshot] Plane scaled to target size: {targetScale}");
+            Debug.Log($"[Slingshot] SCALE COMPLETE: Final scale: {planeObject.localScale}");
         }
     }
 
