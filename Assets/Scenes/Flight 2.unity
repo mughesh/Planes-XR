@@ -14071,7 +14071,7 @@ MonoBehaviour:
   requireHandleGrip: 1
   showDebugGizmos: 1
   showDebugLogs: 1
-  scaleStartTrigger: {fileID: 0}
+  scaleStartTrigger: {fileID: 1320338384}
 --- !u!1001 &341608047
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -14150,6 +14150,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4397664628265918113, guid: 0a7d2469f24041c4284c66706f84c45e, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5773957062392031377, guid: 0a7d2469f24041c4284c66706f84c45e, type: 3}
+      propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5801245061754409418, guid: 0a7d2469f24041c4284c66706f84c45e, type: 3}
@@ -29430,7 +29434,7 @@ Transform:
   m_GameObject: {fileID: 1045054173}
   serializedVersion: 2
   m_LocalRotation: {x: 0.418584, y: 0.4185839, z: 0.56990135, w: 0.5699012}
-  m_LocalPosition: {x: -0.0055, y: -0, z: 0.0254}
+  m_LocalPosition: {x: -0.0134, y: 0, z: 0.0265}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -34023,7 +34027,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1320338384}
   m_Layer: 0
-  m_Name: PassingPoint
+  m_Name: Scale Trigger
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -34065,11 +34069,10 @@ MonoBehaviour:
   flightSystemObject: {fileID: 1927858935}
   scaleInSlingshot: {x: 0.2, y: 0.2, z: 0.2}
   scaleAfterLaunch: {x: 0.8, y: 0.8, z: 0.8}
-  scaleUpDuration: 0.6
+  scaleUpDuration: 1.5
   enableTrajectory: 1
-  trajectoryDuration: 1.2
-  trajectoryDistance: 3.12
-  trajectoryDip: 0.2
+  trajectoryDuration: 1.68
+  trajectoryHeight: 0.5
   startDelay: 0.1
   showDebugLogs: 0
 --- !u!1001 &1344591229
@@ -40938,6 +40941,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _facing: 0
   _doubleSided: 0
+--- !u!1 &1464763806 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8771091787928289351, guid: 20de7c40604383b47937340616991137, type: 3}
+  m_PrefabInstance: {fileID: 174582041}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1471377434
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -61010,10 +61018,12 @@ MonoBehaviour:
   inputManager: {fileID: 978502087}
   flightDynamics: {fileID: 1927858936}
   planeTransform: {fileID: 1328891775}
+  handVisualPlane: {fileID: 1464763806}
   maxRollAngle: 80
   maxPitchAngle: 25
   rotationSpeed: 90
   bankingTurnStrength: 100
+  autoLevelDuration: 0
   pitchMode: 0
   showDebugInfo: 1
 --- !u!4 &1927858938
@@ -84597,19 +84607,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8238287370226287742, guid: 1247733a16759e44a97847deb3ea6b6a, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0.9884853
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8238287370226287742, guid: 1247733a16759e44a97847deb3ea6b6a, type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0.15131737
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8238287370226287742, guid: 1247733a16759e44a97847deb3ea6b6a, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0.000000029802322
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8238287370226287742, guid: 1247733a16759e44a97847deb3ea6b6a, type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0.000000059604645
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8238287370226287742, guid: 1247733a16759e44a97847deb3ea6b6a, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x

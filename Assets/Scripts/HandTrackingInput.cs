@@ -108,7 +108,7 @@ public class HandTrackingInput : MonoBehaviour, IFlightInputProvider
         if (showDebugLogs && Time.frameCount % 30 == 0)
         {
             string smoothStatus = enableSmoothing ? $"[{smoothingMethod}]" : "[RAW]";
-            Debug.Log($"[HandTracking] {smoothStatus} Roll: {currentRoll:F2} | Pitch: {currentPitch:F2}");
+           // Debug.Log($"[HandTracking] {smoothStatus} Roll: {currentRoll:F2} | Pitch: {currentPitch:F2}");
         }
     }
 

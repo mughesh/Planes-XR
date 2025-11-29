@@ -39,13 +39,9 @@ public class PlaneLaunchSequence : MonoBehaviour
     [Range(0.3f, 2.5f)]
     public float trajectoryDuration = 1.2f;
 
-    [Tooltip("Total distance plane travels during trajectory")]
-    [Range(0.5f, 5f)]
-    public float trajectoryDistance = 2.5f;
-
-    [Tooltip("How much plane dips down")]
-    [Range(0.05f, 0.5f)]
-    public float trajectoryDip = 0.2f;
+    [Tooltip("How high the plane arcs UP during launch")]
+    [Range(0.1f, 2.0f)]
+    public float trajectoryHeight = 0.5f;
 
     [Tooltip("Delay before trajectory starts (wait for scale trigger)")]
     [Range(0f, 0.5f)]
@@ -64,6 +60,7 @@ public class PlaneLaunchSequence : MonoBehaviour
     private bool isLaunched = false;
     private Vector3 launchDirection;
     private Vector3 originalScale;
+    private float initialLaunchSpeed;
 
     void Awake()
     {
@@ -93,7 +90,7 @@ public class PlaneLaunchSequence : MonoBehaviour
     }
 
     /// <summary>
-    /// Called by SlingshotController when plane is launched
+    /// Called by SlingshotManager when plane is launched
     /// </summary>
     public void StartLaunch(Vector3 direction, float speed, bool hasPassedTrigger)
     {
@@ -105,6 +102,7 @@ public class PlaneLaunchSequence : MonoBehaviour
 
         isLaunched = true;
         launchDirection = direction;
+        initialLaunchSpeed = speed;
 
         if (showDebugLogs)
         {
@@ -228,10 +226,13 @@ public class PlaneLaunchSequence : MonoBehaviour
     {
         Vector3 startPos = transform.position;
         float elapsed = 0f;
+        
+        // Target speed is the cruise speed from FlightDynamics
+        float targetSpeed = (flightDynamics != null) ? flightDynamics.maxSpeed : 2.0f;
 
         if (showDebugLogs)
         {
-            Debug.Log($"[PlaneSequence] Trajectory START. Duration: {trajectoryDuration}s, Distance: {trajectoryDistance}m");
+            Debug.Log($"[PlaneSequence] Trajectory START. Duration: {trajectoryDuration}s, Speed: {initialLaunchSpeed} -> {targetSpeed}");
         }
 
         // Start scaling simultaneously
@@ -242,14 +243,54 @@ public class PlaneLaunchSequence : MonoBehaviour
             elapsed += Time.deltaTime;
             float t = elapsed / trajectoryDuration;
 
-            // Parabolic curve: dips down then rises
-            float verticalOffset = -4f * trajectoryDip * t * (t - 1f);
+            // 1. Calculate current speed (blend from launch to cruise)
+            // Use smooth step for nicer deceleration
+            float currentSpeed = Mathf.Lerp(initialLaunchSpeed, targetSpeed, Mathf.SmoothStep(0f, 1f, t));
 
-            // Move forward along launch direction
-            Vector3 forward = launchDirection * trajectoryDistance * t;
-            Vector3 down = Vector3.down * verticalOffset;
-
-            transform.position = startPos + forward + down;
+            // 2. Calculate forward movement
+            // We integrate speed over time roughly by just moving forward by currentSpeed * dt
+            // But since we are in a loop, we can calculate total distance traveled if we assumed linear decel,
+            // or just move incrementally. Moving incrementally is safer for collision but here we are kinematic.
+            // Let's stick to the position formula for simplicity and consistency.
+            // Distance = (v0 * t) + 0.5 * a * t^2 ? No, that's physics.
+            // Let's just move the transform incrementally to match the speed exactly.
+            
+            Vector3 moveStep = launchDirection * currentSpeed * Time.deltaTime;
+            
+            // 3. Calculate vertical arc (Parabola)
+            // Parabola formula: y = 4 * height * x * (1 - x) where x is 0..1
+            // We need to ADD this offset to the linear path.
+            // Since we are moving incrementally, we need to calculate the TOTAL vertical offset for time T,
+            // and apply the difference from the previous frame?
+            // Or just calculate absolute position based on startPos?
+            
+            // Let's calculate absolute position to be robust.
+            // We need the total distance traveled "horizontally" (along launch dir) at time t.
+            // If speed goes from v0 to v1 linearly: dist = v0*t + 0.5*(v1-v0)/duration * t^2
+            float accel = (targetSpeed - initialLaunchSpeed) / trajectoryDuration;
+            float distTraveled = (initialLaunchSpeed * elapsed) + (0.5f * accel * elapsed * elapsed);
+            
+            Vector3 forwardPos = startPos + (launchDirection * distTraveled);
+            
+            // Vertical offset (Upward arc)
+            // 4 * h * t * (1-t) gives a hump from 0 to 1
+            float verticalOffset = 4f * trajectoryHeight * t * (1f - t);
+            
+            transform.position = forwardPos + (Vector3.up * verticalOffset);
+            
+            // Update rotation to match the arc?
+            // The plane should pitch up then down.
+            // We can look at the next position to determine rotation.
+            float nextT = (elapsed + Time.deltaTime) / trajectoryDuration;
+            float nextDist = (initialLaunchSpeed * (elapsed + Time.deltaTime)) + (0.5f * accel * (elapsed + Time.deltaTime) * (elapsed + Time.deltaTime));
+            float nextVert = 4f * trajectoryHeight * nextT * (1f - nextT);
+            Vector3 nextPos = startPos + (launchDirection * nextDist) + (Vector3.up * nextVert);
+            
+            Vector3 flightDir = (nextPos - transform.position).normalized;
+            if (flightDir != Vector3.zero)
+            {
+                transform.rotation = Quaternion.LookRotation(flightDir);
+            }
 
             yield return null;
         }
@@ -298,9 +339,29 @@ public class PlaneLaunchSequence : MonoBehaviour
         {
             flightSystemObject.SetActive(true);
 
+            // 1. Sync Speed
+            // Get the final speed from the trajectory (or use current interpolated speed)
+            // Since we just finished trajectory, our speed should be targetSpeed (cruise speed)
+            // But to be safe, let's explicitly set it.
+            if (flightDynamics != null)
+            {
+                // We want to ensure FlightDynamics starts at the speed we ended at.
+                // In ExecuteTrajectory, we lerped to flightDynamics.maxSpeed.
+                // So we can just set it to that, or pass the calculated value if we had it.
+                // Ideally, we should pass the exact speed we ended with.
+                // But since we lerped to maxSpeed, setting it to maxSpeed is correct.
+                flightDynamics.SetCurrentSpeed(flightDynamics.maxSpeed);
+            }
+
+            // 2. Start Auto-Leveling
+            if (flightController != null)
+            {
+                flightController.StartAutoLevelSequence();
+            }
+
             if (showDebugLogs)
             {
-                Debug.Log($"[PlaneSequence] Flight systems ENABLED! Player can now control plane.");
+                Debug.Log($"[PlaneSequence] Flight systems ENABLED! Starting auto-level.");
             }
         }
         else
