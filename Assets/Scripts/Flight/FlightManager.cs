@@ -20,6 +20,8 @@ public class FlightManager : MonoBehaviour
     public Vector3 scaleInSlingshot = new Vector3(0.2f, 0.2f, 0.2f);
     public Vector3 scaleAfterLaunch = Vector3.one;
 
+    private Animator planeAnimator;
+
     private void Awake()
     {
         // Ensure components are assigned
@@ -27,6 +29,13 @@ public class FlightManager : MonoBehaviour
         if (!autoLeveler) autoLeveler = GetComponent<AutoLeveler>();
         if (!flightController) flightController = GetComponent<FlightController>();
         if (!flightDynamics) flightDynamics = GetComponent<FlightDynamics>();
+
+        // // Disable legacy components to prevent unwanted behavior in Slingshot
+        // AudioSource legacyAudio = GetComponent<AudioSource>();
+        // if (legacyAudio) legacyAudio.enabled = false;
+
+        planeAnimator = GetComponent<Animator>();
+        if (planeAnimator) planeAnimator.enabled = false;
 
         // Initial State
         DisableAllControl();
@@ -85,7 +94,8 @@ public class FlightManager : MonoBehaviour
             // Set throttle to 1 so it maintains speed (otherwise it decelerates to 0)
             flightDynamics.SetThrottle(1f);
         }
-
+                // Enable Animator
+        if (planeAnimator) planeAnimator.enabled = true;
         // Start Auto Level
         if (autoLeveler)
         {
@@ -107,6 +117,9 @@ public class FlightManager : MonoBehaviour
             flightController.enabled = true;
             flightController.SyncRotation(); // FIX: Prevent snap
         }
+
+        // Enable Animator
+        if (planeAnimator) planeAnimator.enabled = true;
 
         // Show Visual
         if (handVisualPlane) handVisualPlane.SetActive(true);
