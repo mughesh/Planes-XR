@@ -1,11 +1,9 @@
 using UnityEngine;
-using System.Collections;
 
 /// <summary>
 /// Pocket Pilot Flight Controller
-/// Hybrid Position-Based Control: Hand angle controls plane orientation
-/// Banking creates natural coordinated turns
-/// Constant cruise speed (no throttle control)
+/// Handles "Free Flight" input and rotation.
+/// Controlled by FlightManager (enabled/disabled).
 /// </summary>
 public class FlightController : MonoBehaviour
 {
@@ -14,39 +12,19 @@ public class FlightController : MonoBehaviour
     public FlightDynamics flightDynamics;
     public Transform planeTransform;
 
-    [Header("Visuals")]
-    [Tooltip("The mini plane on the hand (visual signifier)")]
-    public GameObject handVisualPlane;
-
     [Header("Control Angles")]
-    [Tooltip("Maximum roll angle (degrees)")]
-    [Range(30f, 70f)]
-    public float maxRollAngle = 45f;
-
-    [Tooltip("Maximum pitch angle (degrees)")]
-    [Range(15f, 45f)]
-    public float maxPitchAngle = 25f;
-
-    [Tooltip("How fast plane responds to input (degrees/second)")]
-    [Range(60f, 180f)]
-    public float rotationSpeed = 120f;
-
-    [Header("Banking Turn")]
-    [Tooltip("How much banking creates yaw (higher = tighter turns)")]
-    [Range(50f, 200f)]
-    public float bankingTurnStrength = 100f;
-
-    [Header("Auto-Leveling")]
-    [Tooltip("Duration of auto-leveling phase after launch (seconds)")]
-    public float autoLevelDuration = 2.0f;
+    [Range(30f, 70f)] public float maxRollAngle = 45f;
+    [Range(15f, 45f)] public float maxPitchAngle = 25f;
+    [Range(60f, 180f)] public float rotationSpeed = 120f;
+    [Range(50f, 200f)] public float bankingTurnStrength = 100f;
 
     [Header("Pitch Mode")]
     public PitchMode pitchMode = PitchMode.PositionBased;
 
     public enum PitchMode
     {
-        PositionBased,  // Hand tilt controls pitch
-        AutoLevel       // Pitch stays level automatically
+        PositionBased,
+        AutoLevel // Not used here anymore, but kept for enum compatibility if needed
     }
 
     [Header("Debug")]
@@ -56,174 +34,62 @@ public class FlightController : MonoBehaviour
     private float currentRoll = 0f;
     private float currentPitch = 0f;
     private float currentYaw = 0f;
-    private bool isAutoLeveling = false;
 
     void Start()
     {
-        if (inputManager == null)
-        {
-            inputManager = FindFirstObjectByType<FlightInputManager>();
-            if (inputManager == null)
-            {
-                GameObject go = new GameObject("FlightInputManager");
-                inputManager = go.AddComponent<FlightInputManager>();
-            }
-        }
+        if (inputManager == null) inputManager = FindFirstObjectByType<FlightInputManager>();
+        if (flightDynamics == null) flightDynamics = GetComponent<FlightDynamics>();
+        if (planeTransform == null) planeTransform = transform;
+    }
 
-        if (flightDynamics == null)
-        {
-            flightDynamics = GetComponent<FlightDynamics>();
-            if (flightDynamics == null)
-            {
-                flightDynamics = gameObject.AddComponent<FlightDynamics>();
-            }
-        }
+    /// <summary>
+    /// Called by FlightManager when enabling control.
+    /// Syncs internal state to current rotation to prevent snapping.
+    /// </summary>
+    public void SyncRotation()
+    {
+        Vector3 euler = planeTransform.rotation.eulerAngles;
+        
+        // Normalize angles to -180 to 180
+        currentPitch = (euler.x > 180) ? euler.x - 360 : euler.x;
+        currentYaw = euler.y;
+        currentRoll = (euler.z > 180) ? euler.z - 360 : euler.z;
 
-        if (planeTransform == null)
-        {
-            CreateTestPlane();
-        }
-
-        if (flightDynamics != null)
-        {
-            flightDynamics.planeTransform = planeTransform;
-        }
-
-        // Ensure visual is hidden at start
-        if (handVisualPlane != null)
-        {
-            handVisualPlane.SetActive(false);
-        }
+        if (showDebugInfo) Debug.Log($"[FlightController] Synced Rotation: P:{currentPitch:F1} Y:{currentYaw:F1} R:{currentRoll:F1}");
     }
 
     void Update()
     {
-        if (!inputManager.IsInputActive())
-        {
-            return;
-        }
+        if (!inputManager || !inputManager.IsInputActive()) return;
 
         UpdateFlightControl();
     }
 
-    /// <summary>
-    /// Starts the auto-leveling sequence.
-    /// Called by PlaneLaunchSequence when trajectory ends.
-    /// </summary>
-    public void StartAutoLevelSequence()
-    {
-        StartCoroutine(AutoLevelRoutine());
-    }
-
-    private IEnumerator AutoLevelRoutine()
-    {
-        isAutoLeveling = true;
-        
-        // Hide visual during auto-level
-        if (handVisualPlane != null) handVisualPlane.SetActive(false);
-
-        if (showDebugInfo) Debug.Log("[FlightController] Starting Auto-Level Phase");
-
-        yield return new WaitForSeconds(autoLevelDuration);
-
-        isAutoLeveling = false;
-        
-        // Show visual when control is returned
-        if (handVisualPlane != null) handVisualPlane.SetActive(true);
-
-        if (showDebugInfo) Debug.Log("[FlightController] Auto-Level Complete. Hand Control Active.");
-    }
-
     void UpdateFlightControl()
     {
-        float targetRoll = 0f;
-        float targetPitch = 0f;
+        // Input
+        float rollInput = inputManager.GetRoll();
+        float pitchInput = inputManager.GetPitch();
 
-        // If NOT auto-leveling, get input from hand
-        if (!isAutoLeveling)
-        {
-            // Get input from hand tracking (-1 to 1)
-            float rollInput = inputManager.GetRoll();
-            float pitchInput = inputManager.GetPitch();
+        // Target Angles
+        float targetRoll = rollInput * maxRollAngle;
+        float targetPitch = (pitchMode == PitchMode.PositionBased) ? pitchInput * maxPitchAngle : 0f;
 
-            // === ROLL ===
-            targetRoll = rollInput * maxRollAngle;
-
-            // === PITCH ===
-            if (pitchMode == PitchMode.PositionBased)
-            {
-                targetPitch = pitchInput * maxPitchAngle;
-            }
-        }
-        else
-        {
-            // Auto-leveling: Target is zero (flat)
-            targetRoll = 0f;
-            targetPitch = 0f;
-        }
-
-        // === SMOOTH INTERPOLATION ===
-        // Use rotationSpeed to smoothly move towards target (whether input or level)
+        // Smooth Interpolation
         currentRoll = Mathf.MoveTowards(currentRoll, targetRoll, rotationSpeed * Time.deltaTime);
         currentPitch = Mathf.MoveTowards(currentPitch, targetPitch, rotationSpeed * Time.deltaTime);
 
-        // === BANKING TURN (Coordinated Yaw) ===
-        // Roll creates yaw: banking left makes the plane turn left
-        // Negate to match expected behavior: positive roll (right bank) = positive yaw (turn right)
+        // Banking Turn (Yaw)
         float bankingYawRate = -Mathf.Sin(currentRoll * Mathf.Deg2Rad) * bankingTurnStrength;
         currentYaw += bankingYawRate * Time.deltaTime;
 
-        // Keep yaw in reasonable range
-        if (currentYaw > 360f) currentYaw -= 360f;
-        if (currentYaw < 0f) currentYaw += 360f;
-
-        // === APPLY ROTATION ===
+        // Apply
         planeTransform.rotation = Quaternion.Euler(currentPitch, currentYaw, currentRoll);
 
-        // === CONSTANT FORWARD MOVEMENT ===
-        if (flightDynamics != null)
-        {
-            flightDynamics.SetThrottle(1f);  // Always full cruise
-        }
-
-        // === DEBUG ===
+        // Debug
         if (showDebugInfo && Time.frameCount % 30 == 0)
         {
-            float yawRate = -Mathf.Sin(currentRoll * Mathf.Deg2Rad) * bankingTurnStrength;
-            string mode = isAutoLeveling ? "AUTO-LEVEL" : "MANUAL";
-            Debug.Log($"[Flight] {mode} | Roll: {currentRoll:F1}° | Pitch: {currentPitch:F1}°");
+            Debug.Log($"[Flight] Roll: {currentRoll:F1}° | Pitch: {currentPitch:F1}°");
         }
-    }
-
-    void CreateTestPlane()
-    {
-        GameObject planeGO = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        planeGO.name = "TestPlane";
-        planeGO.transform.position = Camera.main.transform.position + Camera.main.transform.forward * 0.5f;
-        planeGO.transform.localScale = new Vector3(0.15f, 0.05f, 0.1f);
-
-        Renderer renderer = planeGO.GetComponent<Renderer>();
-        renderer.material.color = new Color(0.2f, 0.6f, 1f);
-
-        planeTransform = planeGO.transform;
-        Debug.Log("Created test plane");
-    }
-
-    void OnGUI()
-    {
-        if (!showDebugInfo) return;
-
-        GUIStyle style = new GUIStyle(GUI.skin.label);
-        style.fontSize = 18;
-        style.normal.textColor = Color.white;
-
-        string pitchModeStr = pitchMode == PitchMode.PositionBased ? "PosBased" : "AutoLevel";
-        string status = isAutoLeveling ? "AUTO-LEVELING" : "MANUAL CONTROL";
-        
-        GUI.Label(new Rect(10, 10, 500, 25), $"[POCKET PILOT] {status}", style);
-        GUI.Label(new Rect(10, 35, 500, 25), $"Roll: {currentRoll:F1}° | Pitch: {currentPitch:F1}° | Yaw: {currentYaw:F1}°", style);
-
-        float speed = flightDynamics != null ? flightDynamics.GetSpeed() : 0f;
-        GUI.Label(new Rect(10, 60, 500, 25), $"Speed: {speed:F1} m/s", style);
     }
 }

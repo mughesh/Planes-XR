@@ -14069,9 +14069,9 @@ MonoBehaviour:
   minLaunchDistance: 0.05
   snapBackSpeed: 40.9
   requireHandleGrip: 1
+  scaleStartTrigger: {fileID: 1320338384}
   showDebugGizmos: 1
   showDebugLogs: 1
-  scaleStartTrigger: {fileID: 1320338384}
 --- !u!1001 &341608047
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -34053,7 +34053,7 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 8238287370226287742, guid: 1247733a16759e44a97847deb3ea6b6a, type: 3}
   m_PrefabInstance: {fileID: 6897414382790973442}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &1328891778
+--- !u!114 &1328891781
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -34062,19 +34062,45 @@ MonoBehaviour:
   m_GameObject: {fileID: 105013442}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f21e36c221cb2124e914c3a78149e61d, type: 3}
+  m_Script: {fileID: 11500000, guid: 7a9419d48359a5c44b1d538cc7a088a7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  scaleStartTrigger: {fileID: 1320338384}
-  flightSystemObject: {fileID: 1927858935}
+  duration: 2
+  rotationSpeed: 2
+--- !u!114 &1328891782
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 105013442}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f441d7a4b4e3db2429869928fe006eb9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  duration: 1.2
+  arcHeight: 0.5
+--- !u!114 &1328891783
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 105013442}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 25b18251fa00612468b3a18b590cd51f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  trajectoryMover: {fileID: 1328891782}
+  autoLeveler: {fileID: 1328891781}
+  flightController: {fileID: 1927858937}
+  flightDynamics: {fileID: 1927858936}
+  handVisualPlane: {fileID: 1464763806}
+  scaleUpDuration: 0.6
   scaleInSlingshot: {x: 0.2, y: 0.2, z: 0.2}
-  scaleAfterLaunch: {x: 0.8, y: 0.8, z: 0.8}
-  scaleUpDuration: 1.5
-  enableTrajectory: 1
-  trajectoryDuration: 1.68
-  trajectoryHeight: 0.5
-  startDelay: 0.1
-  showDebugLogs: 0
+  scaleAfterLaunch: {x: 1, y: 1, z: 1}
 --- !u!1001 &1344591229
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -55122,54 +55148,6 @@ MonoBehaviour:
   m_DefaultSpriteDPI: 96
   m_DynamicPixelsPerUnit: 1
   m_PresetInfoIsWorld: 1
---- !u!1 &1747582546
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1747582547}
-  - component: {fileID: 1747582549}
-  m_Layer: 0
-  m_Name: SlingshotController
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1747582547
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1747582546}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.12807463, y: 1.4029264, z: 0.3826161}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1747582549
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1747582546}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 866bbf968539f0744b8058673db393b6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  slingshotController: {fileID: 339959783}
-  planeLauncher: {fileID: 1328891778}
-  hideDelay: 0.5
-  waitForSnapBack: 1
 --- !u!1 &1752604144
 GameObject:
   m_ObjectHideFlags: 0
@@ -61018,12 +60996,10 @@ MonoBehaviour:
   inputManager: {fileID: 978502087}
   flightDynamics: {fileID: 1927858936}
   planeTransform: {fileID: 1328891775}
-  handVisualPlane: {fileID: 1464763806}
   maxRollAngle: 80
   maxPitchAngle: 25
   rotationSpeed: 90
   bankingTurnStrength: 100
-  autoLevelDuration: 0
   pitchMode: 0
   showDebugInfo: 1
 --- !u!4 &1927858938
@@ -63979,6 +63955,51 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 1858395827515682820, guid: 51ba61fa774ccd14fb1f3743d17109a4, type: 3}
   m_PrefabInstance: {fileID: 2090945902}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &2105300745
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2105300746}
+  - component: {fileID: 2105300747}
+  m_Layer: 0
+  m_Name: GameManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2105300746
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2105300745}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.12799996, y: 1.3701944, z: 0.26171666}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2105300747
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2105300745}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ba0a2bcd1cfaf24498cf185d7c12db88, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  showDebugLogs: 1
 --- !u!1 &2110139744
 GameObject:
   m_ObjectHideFlags: 0
@@ -84643,7 +84664,13 @@ PrefabInstance:
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 4779504016969501821, guid: 1247733a16759e44a97847deb3ea6b6a, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 1328891778}
+      addedObject: {fileID: 1328891783}
+    - targetCorrespondingSourceObject: {fileID: 4779504016969501821, guid: 1247733a16759e44a97847deb3ea6b6a, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1328891782}
+    - targetCorrespondingSourceObject: {fileID: 4779504016969501821, guid: 1247733a16759e44a97847deb3ea6b6a, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1328891781}
   m_SourcePrefab: {fileID: 100100000, guid: 1247733a16759e44a97847deb3ea6b6a, type: 3}
 --- !u!1001 &7079690332569821011
 PrefabInstance:
@@ -88392,4 +88419,4 @@ SceneRoots:
   - {fileID: 1804274336}
   - {fileID: 978502089}
   - {fileID: 1927858938}
-  - {fileID: 1747582547}
+  - {fileID: 2105300746}
