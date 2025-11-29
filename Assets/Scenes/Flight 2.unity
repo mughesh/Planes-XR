@@ -3500,6 +3500,11 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 5419595675737147854, guid: 26f4ebef46557d443aa5faf2a32711c2, type: 3}
   m_PrefabInstance: {fileID: 104192324}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &105013442 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 4779504016969501821, guid: 1247733a16759e44a97847deb3ea6b6a, type: 3}
+  m_PrefabInstance: {fileID: 6897414382790973442}
+  m_PrefabAsset: {fileID: 0}
 --- !u!224 &105280941 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 8332515563436936650, guid: f727782be5090c644bbd8d9c1aee79c8, type: 3}
@@ -14058,23 +14063,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   leatherPad: {fileID: 705101070}
-  spawnPoint: {fileID: 1045054174}
   handle: {fileID: 1850851827}
   planeObject: {fileID: 1328891775}
-  flightSystemObject: {fileID: 1927858935}
-  playerCamera: {fileID: 0}
-  scaleStartTrigger: {fileID: 1320338384}
   maxPullDistance: 0.3
   launchPowerMultiplier: 15
   minLaunchDistance: 0.05
   snapBackSpeed: 40.9
-  planeScaleInSlingshot: {x: 0.2, y: 0.2, z: 0.2}
-  planeScaleAfterLaunch: {x: 0.8, y: 0.8, z: 0.8}
-  scaleUpDuration: 1.5
-  enableLaunchTrajectory: 1
-  trajectoryDuration: 1.207
-  trajectoryDistance: 2.5
-  trajectoryDip: 0.21
+  hideDelay: 1.535
   requireHandleGrip: 1
   showDebugGizmos: 1
   showDebugLogs: 1
@@ -34054,6 +34049,29 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 8238287370226287742, guid: 1247733a16759e44a97847deb3ea6b6a, type: 3}
   m_PrefabInstance: {fileID: 6897414382790973442}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &1328891778
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 105013442}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f21e36c221cb2124e914c3a78149e61d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  scaleStartTrigger: {fileID: 1320338384}
+  flightSystemObject: {fileID: 1927858935}
+  scaleInSlingshot: {x: 0.2, y: 0.2, z: 0.2}
+  scaleAfterLaunch: {x: 0.8, y: 0.8, z: 0.8}
+  scaleUpDuration: 0.6
+  enableTrajectory: 1
+  trajectoryDuration: 1.2
+  trajectoryDistance: 3.12
+  trajectoryDip: 0.2
+  startDelay: 0.1
+  showDebugLogs: 0
 --- !u!1001 &1344591229
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -55096,6 +55114,37 @@ MonoBehaviour:
   m_DefaultSpriteDPI: 96
   m_DynamicPixelsPerUnit: 1
   m_PresetInfoIsWorld: 1
+--- !u!1 &1747582546
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1747582547}
+  m_Layer: 0
+  m_Name: PlaneLunachsequence
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1747582547
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1747582546}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.12807463, y: 1.4029264, z: 0.3826161}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1752604144
 GameObject:
   m_ObjectHideFlags: 0
@@ -84564,7 +84613,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 4779504016969501821, guid: 1247733a16759e44a97847deb3ea6b6a, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1328891778}
   m_SourcePrefab: {fileID: 100100000, guid: 1247733a16759e44a97847deb3ea6b6a, type: 3}
 --- !u!1001 &7079690332569821011
 PrefabInstance:
@@ -88314,3 +88366,4 @@ SceneRoots:
   - {fileID: 1804274336}
   - {fileID: 978502089}
   - {fileID: 1927858938}
+  - {fileID: 1747582547}
