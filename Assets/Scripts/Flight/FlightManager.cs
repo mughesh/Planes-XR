@@ -50,11 +50,10 @@ public class FlightManager : MonoBehaviour
         // 1. Unparent
         transform.SetParent(null);
 
-        // 2. Enable Dynamics (Movement)
+        // 2. Disable Dynamics (Movement) - Prevent conflict with TrajectoryMover
         if (flightDynamics)
         {
-            flightDynamics.enableMovement = true;
-            flightDynamics.SetCurrentSpeed(speed); // Start at launch speed
+            flightDynamics.enableMovement = false;
         }
 
         // 3. Start Trajectory
@@ -76,6 +75,16 @@ public class FlightManager : MonoBehaviour
     private void OnTrajectoryDone()
     {
         GameEvents.OnTrajectoryComplete?.Invoke();
+
+        // 5. Enable Dynamics (Movement) for Auto-Level Phase
+        if (flightDynamics)
+        {
+            flightDynamics.enableMovement = true;
+            // Ensure we continue at the speed the trajectory ended with
+            flightDynamics.SetCurrentSpeed(flightDynamics.maxSpeed);
+            // Set throttle to 1 so it maintains speed (otherwise it decelerates to 0)
+            flightDynamics.SetThrottle(1f);
+        }
 
         // Start Auto Level
         if (autoLeveler)

@@ -34065,7 +34065,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a9419d48359a5c44b1d538cc7a088a7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  duration: 2
+  duration: 1
   rotationSpeed: 2
 --- !u!114 &1328891782
 MonoBehaviour:
@@ -34079,8 +34079,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f441d7a4b4e3db2429869928fe006eb9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  duration: 1.2
-  arcHeight: 0.5
+  duration: 0.75
+  arcHeight: 0.25
 --- !u!114 &1328891783
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -34100,7 +34100,7 @@ MonoBehaviour:
   handVisualPlane: {fileID: 1464763806}
   scaleUpDuration: 0.6
   scaleInSlingshot: {x: 0.2, y: 0.2, z: 0.2}
-  scaleAfterLaunch: {x: 1, y: 1, z: 1}
+  scaleAfterLaunch: {x: 0.75, y: 0.75, z: 0.75}
 --- !u!1001 &1344591229
 PrefabInstance:
   m_ObjectHideFlags: 0
