@@ -66,5 +66,8 @@
     "explorer.fileNesting.patterns": {
         "*.sln": "*.csproj"
     },
-    "dotnet.defaultSolution": "Planes-XR.slnx"
+    "dotnet.defaultSolution": "Planes-XR.slnx",
+    "dotrush.roslyn.projectOrSolutionFiles": [
+        "d:\\UNITY\\projects\\Planes-XR\\Planes-XR.sln"
+    ]
 }

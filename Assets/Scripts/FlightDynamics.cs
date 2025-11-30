@@ -65,6 +65,11 @@ public class FlightDynamics : MonoBehaviour
         targetThrottle = Mathf.Clamp01(throttle);
     }
 
+    public void SetCurrentSpeed(float speed)
+    {
+        currentSpeed = speed;
+    }
+
     public float GetSpeed() => currentSpeed;
     public Vector3 GetVelocity() => currentVelocity;
 

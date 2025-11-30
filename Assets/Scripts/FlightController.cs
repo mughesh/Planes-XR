@@ -2,9 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// Pocket Pilot Flight Controller
-/// Hybrid Position-Based Control: Hand angle controls plane orientation
-/// Banking creates natural coordinated turns
-/// Constant cruise speed (no throttle control)
+/// Handles "Free Flight" input and rotation.
+/// Controlled by FlightManager (enabled/disabled).
 /// </summary>
 public class FlightController : MonoBehaviour
 {
@@ -14,30 +13,18 @@ public class FlightController : MonoBehaviour
     public Transform planeTransform;
 
     [Header("Control Angles")]
-    [Tooltip("Maximum roll angle (degrees)")]
-    [Range(30f, 70f)]
-    public float maxRollAngle = 45f;
-
-    [Tooltip("Maximum pitch angle (degrees)")]
-    [Range(15f, 45f)]
-    public float maxPitchAngle = 25f;
-
-    [Tooltip("How fast plane responds to input (degrees/second)")]
-    [Range(60f, 180f)]
-    public float rotationSpeed = 120f;
-
-    [Header("Banking Turn")]
-    [Tooltip("How much banking creates yaw (higher = tighter turns)")]
-    [Range(50f, 200f)]
-    public float bankingTurnStrength = 100f;
+    [Range(30f, 70f)] public float maxRollAngle = 45f;
+    [Range(15f, 45f)] public float maxPitchAngle = 25f;
+    [Range(60f, 180f)] public float rotationSpeed = 120f;
+    [Range(50f, 200f)] public float bankingTurnStrength = 100f;
 
     [Header("Pitch Mode")]
     public PitchMode pitchMode = PitchMode.PositionBased;
 
     public enum PitchMode
     {
-        PositionBased,  // Hand tilt controls pitch
-        AutoLevel       // Pitch stays level automatically
+        PositionBased,
+        AutoLevel // Not used here anymore, but kept for enum compatibility if needed
     }
 
     [Header("Debug")]
@@ -50,122 +37,59 @@ public class FlightController : MonoBehaviour
 
     void Start()
     {
-        if (inputManager == null)
-        {
-            inputManager = FindObjectOfType<FlightInputManager>();
-            if (inputManager == null)
-            {
-                GameObject go = new GameObject("FlightInputManager");
-                inputManager = go.AddComponent<FlightInputManager>();
-            }
-        }
+        if (inputManager == null) inputManager = FindFirstObjectByType<FlightInputManager>();
+        if (flightDynamics == null) flightDynamics = GetComponent<FlightDynamics>();
+        if (planeTransform == null) planeTransform = transform;
+    }
 
-        if (flightDynamics == null)
-        {
-            flightDynamics = GetComponent<FlightDynamics>();
-            if (flightDynamics == null)
-            {
-                flightDynamics = gameObject.AddComponent<FlightDynamics>();
-            }
-        }
+    /// <summary>
+    /// Called by FlightManager when enabling control.
+    /// Syncs internal state to current rotation to prevent snapping.
+    /// </summary>
+    public void SyncRotation()
+    {
+        Vector3 euler = planeTransform.rotation.eulerAngles;
+        
+        // Normalize angles to -180 to 180
+        currentPitch = (euler.x > 180) ? euler.x - 360 : euler.x;
+        currentYaw = euler.y;
+        currentRoll = (euler.z > 180) ? euler.z - 360 : euler.z;
 
-        if (planeTransform == null)
-        {
-            CreateTestPlane();
-        }
-
-        if (flightDynamics != null)
-        {
-            flightDynamics.planeTransform = planeTransform;
-        }
+        if (showDebugInfo) Debug.Log($"[FlightController] Synced Rotation: P:{currentPitch:F1} Y:{currentYaw:F1} R:{currentRoll:F1}");
     }
 
     void Update()
     {
-        if (!inputManager.IsInputActive())
-        {
-            return;
-        }
+        if (!inputManager || !inputManager.IsInputActive()) return;
 
         UpdateFlightControl();
     }
 
     void UpdateFlightControl()
     {
-        // Get input from hand tracking (-1 to 1)
+        // Input
         float rollInput = inputManager.GetRoll();
         float pitchInput = inputManager.GetPitch();
 
-        // === ROLL ===
-        // Direct mapping: hand roll angle = plane roll angle
-        // The sign here determines if tilt-left = bank-left
+        // Target Angles
         float targetRoll = rollInput * maxRollAngle;
+        float targetPitch = (pitchMode == PitchMode.PositionBased) ? pitchInput * maxPitchAngle : 0f;
 
-        // === PITCH ===
-        float targetPitch = 0f;
-        if (pitchMode == PitchMode.PositionBased)
-        {
-            targetPitch = pitchInput * maxPitchAngle;
-        }
-
-        // === SMOOTH INTERPOLATION ===
+        // Smooth Interpolation
         currentRoll = Mathf.MoveTowards(currentRoll, targetRoll, rotationSpeed * Time.deltaTime);
         currentPitch = Mathf.MoveTowards(currentPitch, targetPitch, rotationSpeed * Time.deltaTime);
 
-        // === BANKING TURN (Coordinated Yaw) ===
-        // Roll creates yaw: banking left makes the plane turn left
-        // Negate to match expected behavior: positive roll (right bank) = positive yaw (turn right)
+        // Banking Turn (Yaw)
         float bankingYawRate = -Mathf.Sin(currentRoll * Mathf.Deg2Rad) * bankingTurnStrength;
         currentYaw += bankingYawRate * Time.deltaTime;
 
-        // Keep yaw in reasonable range
-        if (currentYaw > 360f) currentYaw -= 360f;
-        if (currentYaw < 0f) currentYaw += 360f;
-
-        // === APPLY ROTATION ===
+        // Apply
         planeTransform.rotation = Quaternion.Euler(currentPitch, currentYaw, currentRoll);
 
-        // === CONSTANT FORWARD MOVEMENT ===
-        if (flightDynamics != null)
-        {
-            flightDynamics.SetThrottle(1f);  // Always full cruise
-        }
-
-        // === DEBUG ===
+        // Debug
         if (showDebugInfo && Time.frameCount % 30 == 0)
         {
-            float yawRate = -Mathf.Sin(currentRoll * Mathf.Deg2Rad) * bankingTurnStrength;
-            Debug.Log($"[Flight] Roll: {rollInput:F2}→{currentRoll:F1}° | Pitch: {currentPitch:F1}° | Yaw: {currentYaw:F1}° (rate: {yawRate:F1}°/s)");
+            Debug.Log($"[Flight] Roll: {currentRoll:F1}° | Pitch: {currentPitch:F1}°");
         }
-    }
-
-    void CreateTestPlane()
-    {
-        GameObject planeGO = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        planeGO.name = "TestPlane";
-        planeGO.transform.position = Camera.main.transform.position + Camera.main.transform.forward * 0.5f;
-        planeGO.transform.localScale = new Vector3(0.15f, 0.05f, 0.1f);
-
-        Renderer renderer = planeGO.GetComponent<Renderer>();
-        renderer.material.color = new Color(0.2f, 0.6f, 1f);
-
-        planeTransform = planeGO.transform;
-        Debug.Log("Created test plane");
-    }
-
-    void OnGUI()
-    {
-        if (!showDebugInfo) return;
-
-        GUIStyle style = new GUIStyle(GUI.skin.label);
-        style.fontSize = 18;
-        style.normal.textColor = Color.white;
-
-        string pitchModeStr = pitchMode == PitchMode.PositionBased ? "PosBased" : "AutoLevel";
-        GUI.Label(new Rect(10, 10, 500, 25), $"[POCKET PILOT] Pitch: {pitchModeStr}", style);
-        GUI.Label(new Rect(10, 35, 500, 25), $"Roll: {currentRoll:F1}° | Pitch: {currentPitch:F1}° | Yaw: {currentYaw:F1}°", style);
-
-        float speed = flightDynamics != null ? flightDynamics.GetSpeed() : 0f;
-        GUI.Label(new Rect(10, 60, 500, 25), $"Speed: {speed:F1} m/s", style);
     }
 }
